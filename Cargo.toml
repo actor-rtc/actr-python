@@ -1,0 +1,30 @@
+[package]
+name = "actr-python"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/actor-rtc/actr-python"
+authors = ["Actor-RTC Contributors"]
+description = "Python bindings for actr (actr_python)"
+readme = "README.md"
+keywords = ["actor", "python", "webrtc", "distributed", "realtime", "p2p"]
+categories = ["network-programming", "asynchronous", "web-programming"]
+
+[lib]
+name = "actr_python"
+crate-type = ["cdylib"]
+
+[dependencies]
+actr-runtime = { path = "../actr/crates/runtime", version = "0.1.6" }
+actr-config = { path = "../actr/crates/config", version = "0.1.4" }
+actr-framework = { path = "../actr/crates/framework", version = "0.1.4" }
+actr-protocol = { path = "../actr/crates/protocol", version = "0.1.5" }
+tokio = { version = "1.48", features = ["full"] }
+bytes = "1.10"
+prost = "0.14"
+async-trait = "0.1"
+tracing = "0.1"
+
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py312"] }
+pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }

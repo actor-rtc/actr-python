@@ -1,0 +1,10 @@
+target/
+*.so
+*.pyd
+__pycache__/
+.maturin/
+.venv/
+.ruff_cache/
+*.egg-info/
+.agent/
+Cargo.lock
