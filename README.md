@@ -1,6 +1,6 @@
 # Actr Python SDK (`actr_python_sdk` + `actr_raw`)
 
-Actr's Python SDK is a mixed Rust/Python package that ships a Pyo3-powered extension module (`actr_raw`) together with a Pythonic wrapper layer (`actr_python_sdk`). The Rust layer exposes the raw bindings, while the SDK layer provides decorators for defining services, a high-level `System` API, and low-level bindings for advanced use cases.
+Actr's Python SDK is a mixed Rust/Python package that ships a Pyo3-powered extension module (`actr_raw`) together with a Pythonic wrapper layer (`actr_python_sdk`). The Rust layer exposes the raw bindings, while the SDK layer provides decorators for defining services, a high-level `ActrSystem` API, and low-level bindings for advanced use cases.
 
 ## Layout
 - `pyproject.toml` – Python packaging metadata for maturin/wheel builds
@@ -19,7 +19,7 @@ maturin develop --release  # build and install into the current virtualenv
 Then use the SDK:
 
 ```python
-from actr_python_sdk import System, actr
+from actr_python_sdk import ActrSystem, actr
 from generated import my_service_pb2
 
 @actr.service("my_service.EchoService")
@@ -28,7 +28,7 @@ class MyService:
     async def echo(self, req: my_service_pb2.EchoRequest, ctx):
         return my_service_pb2.EchoResponse(message=f"Echo: {req.message}")
 
-system = await System.from_toml("Actr.toml")
+system = await ActrSystem.from_toml("Actr.toml")
 node = system.attach(MyService.create_workload())
 ref = await node.start()
 await ref.wait_for_ctrl_c_and_shutdown()
@@ -92,15 +92,15 @@ actr_python_sdk/
 
 **Main Classes**:
 
-1. **`System`**: High-level System wrapper
+1. **`ActrSystem`**: High-level system wrapper
    - `from_toml(path)` - Create system from TOML file
    - `attach(workload)` - Attach Workload
 
-2. **`Node`**: High-level Node wrapper
+2. **`ActrNode`**: High-level node wrapper
    - `start()` - Start node (directly raises exceptions)
 
-3. **`Ref`**: High-level Ref wrapper
-   - `call(route_key, request, ...)` - Call RPC (auto serialize/deserialize)
+3. **`ActrRef`**: High-level ref wrapper
+   - `call(route_key, request, ...)` - Call RPC (auto serialize)
    - `tell(route_key, message, ...)` - Send message (auto serialize)
    - `shutdown()`, `wait_for_shutdown()`, `wait_for_ctrl_c_and_shutdown()`
 
@@ -111,7 +111,7 @@ actr_python_sdk/
    - `register_stream()`, `unregister_stream()`, `send_stream()`
 
 **Features**:
-- **Auto serialization/deserialization**: Accept protobuf objects, automatically handle serialization/deserialization
+- **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes; RPC responses are returned as `bytes` and should be deserialized manually via `ResponseType.FromString(response_bytes)`
 - **Direct exception raising**: All methods directly raise exceptions, following Python conventions
 - **Auto type conversion**: Automatically convert `ActrId` to `Dest` (e.g., `Dest.actor(actr_id)`)
 - **Pythonic design**: Concise method names, reasonable parameters, following Python conventions
@@ -140,7 +140,7 @@ actr_python_sdk/
 - Service registry (global service metadata management)
 
 **Exports from `__init__.py`**:
-- High-level APIs: `System`, `Node`, `Ref`, `Context`
+- High-level APIs: `ActrSystem`, `ActrNode`, `ActrRef`, `Context`
 - Types: `Dest`, `PayloadType`, `DataStream`, `ActrId`, `ActrType`
 - Exceptions: `ActrRuntimeError`, `ActrTransportError`, etc.
 - Decorators: `actr`, `service`, `rpc`
@@ -156,7 +156,7 @@ actr_python_sdk/
 ┌─────────────────────────────────────┐
 │  Decorator API (@actr.service, @actr.rpc) │  ← Simplest, recommended
 ├─────────────────────────────────────┤
-│  High-level Pythonic API (System, Ref, Context) │  ← Python-friendly, recommended
+│  High-level Pythonic API (ActrSystem, ActrRef, Context) │  ← Python-friendly, recommended
 ├─────────────────────────────────────┤
 │  Rust Binding (binding/)            │  ← Low-level, direct Rust mapping
 └─────────────────────────────────────┘
@@ -167,15 +167,13 @@ actr_python_sdk/
 - **Direct exception raising**: All high-level API methods directly raise exceptions, following Python conventions
   - Use standard `try/except` for error handling
   - Exception types: `ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.
-- **Auto serialization**: Accept protobuf objects, automatically handle serialization/deserialization
+- **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes (RPC responses are returned as `bytes`)
 - **Type inference**: Automatically infer types from type annotations
 - **Concise API**: Concise method names, reasonable parameters
 
 ### 3. Backward Compatibility
 
 - Preserve direct access to Rust bindings (`binding` module)
-- Export Rust types in root package (`System`, `Ref`, etc.)
-- Support legacy code to continue working
 
 ---
 
@@ -186,7 +184,7 @@ actr_python_sdk/
 **Features**: Simplest, automatically generates all code
 
 ```python
-from actr_python_sdk import actr, System
+from actr_python_sdk import actr, ActrSystem
 
 @actr.service("my_service.EchoService")
 class MyService:
@@ -195,7 +193,7 @@ class MyService:
         return EchoResponse(message=req.message)
 
 # Usage
-system = await System.from_toml("Actr.toml")
+system = await ActrSystem.from_toml("Actr.toml")
 workload = MyService.create_workload()
 node = system.attach(workload)
 ref = await node.start()
@@ -206,18 +204,18 @@ ref = await node.start()
 **Features**: Python-friendly, automatic serialization handling
 
 ```python
-from actr_python_sdk import System, Ref, Context
+from actr_python_sdk import ActrSystem, ActrRef, Context
 
 # Use high-level API
-system = await System.from_toml("Actr.toml")
+system = await ActrSystem.from_toml("Actr.toml")
 workload = MyWorkload()
 node = system.attach(workload)
 ref = await node.start()
 
 # Call RPC (auto serialize, directly raises exceptions)
 try:
-    response = await ref.call("route.key", request_obj)
-    # Directly use response, no need to check is_ok()
+    response_bytes = await ref.call("route.key", request_obj)
+    response_obj = ResponseType.FromString(response_bytes)
 except ActrRuntimeError as e:
     # Handle error
     pass
@@ -232,7 +230,7 @@ from actr_python_sdk.binding import ActrSystem, ActrRef
 
 # Use Rust binding
 system = await ActrSystem.from_toml("Actr.toml")
-# Need manual serialization/deserialization
+# Need manual serialization/deserialization of protobuf messages
 ```
 
 ---
@@ -274,7 +272,7 @@ Classes in `__init__.py` wrap Rust objects:
 
 **Example**:
 ```python
-from actr_python_sdk import System, Context, ActrRuntimeError
+from actr_python_sdk import ActrSystem, Context, ActrRuntimeError
 
 try:
     response = await ctx.call(server_id, "route.key", request)
@@ -300,7 +298,7 @@ except ActrRuntimeError as e:
 ### Quick Start (Recommended)
 
 ```python
-from actr_python_sdk import actr, System
+from actr_python_sdk import actr, ActrSystem
 
 @actr.service("my_service.EchoService")
 class MyService:
@@ -309,7 +307,7 @@ class MyService:
         return EchoResponse(message=req.message)
 
 async def main():
-    system = await System.from_toml("Actr.toml")
+    system = await ActrSystem.from_toml("Actr.toml")
     workload = MyService.create_workload()
     node = system.attach(workload)
     ref = await node.start()
@@ -319,7 +317,7 @@ async def main():
 ### Using High-level API (Without Decorators)
 
 ```python
-from actr_python_sdk import System, Ref, Context
+from actr_python_sdk import ActrSystem, ActrRef, Context
 
 class MyWorkload:
     def __init__(self, handler):
@@ -333,7 +331,7 @@ class MyWorkload:
         pass
 
 async def main():
-    system = await System.from_toml("Actr.toml")
+    system = await ActrSystem.from_toml("Actr.toml")
     workload = MyWorkload(MyHandler())
     node = system.attach(workload)
     ref = await node.start()
@@ -372,12 +370,12 @@ async def main():
    - Follows Python conventions: use `try/except` for error handling
    - Type-safe: Exception types are clear (`ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.)
    - Consistent: All API layers use the same error handling mechanism
-5. **Auto Serialization**: High-level API automatically handles protobuf serialization/deserialization
+5. **Auto Serialization**: High-level API automatically serializes protobuf requests; RPC responses are returned as `bytes` and should be deserialized manually via `ResponseType.FromString(response_bytes)`
 
 ### Recommended Usage
 
 - **Daily Development**: Use decorator API (`@actr.service`, `@actr.rpc`)
-- **Need Control**: Use high-level API (`System`, `Ref`, `Context`)
+- **Need Control**: Use high-level API (`ActrSystem`, `ActrRef`, `Context`)
 - **Advanced Scenarios**: Use Rust Binding (`binding` module)
 
 ### Backward Compatibility

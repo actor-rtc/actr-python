@@ -7,7 +7,7 @@ This module provides Python bindings for actr-runtime, including:
 - Decorators: @actr.service and @actr.rpc (in .decorators submodule)
 
 Recommended usage:
-    from actr_python_sdk import actr, System
+    from actr_python_sdk import actr, ActrSystem
     
     @actr.service("my_service.EchoService")
     class MyService:
@@ -15,7 +15,7 @@ Recommended usage:
         async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
             return EchoResponse(message=req.message)
     
-    system = await System.from_toml("Actr.toml")
+    system = await ActrSystem.from_toml("Actr.toml")
     workload = MyService.create_workload()
     node = system.attach(workload)
     ref = await node.start()
@@ -32,7 +32,6 @@ from .binding import (
     ActrSystem as RustActrSystem,
     ActrNode as RustActrNode,
     ActrRef as RustActrRef,
-    Context as RustContext,
     Dest as RustDest,
     PayloadType as RustPayloadType,
     # ActrId and ActrType are protobuf types, imported separately when needed
@@ -50,7 +49,7 @@ T = TypeVar('T')
 R = TypeVar('R')
 
 
-class System:
+class ActrSystem:
     """
     High-level ActrSystem wrapper
     
@@ -70,7 +69,7 @@ class System:
             path: Path to TOML configuration file
         
         Returns:
-            System instance
+            ActrSystem instance
         
         Raises:
             RuntimeError: If Rust extension is not available
@@ -79,7 +78,7 @@ class System:
         if RustActrSystem is None:
             raise RuntimeError("Rust ActrSystem not available. Make sure Rust extension is built.")
         rust_system = await RustActrSystem.from_toml(path)
-        return System(rust_system)
+        return ActrSystem(rust_system)
     
     def attach(self, workload):
         """
@@ -89,13 +88,13 @@ class System:
             workload: Workload instance
         
         Returns:
-            Node instance
+            ActrNode instance
         """
         rust_node = self._rust.attach(workload)
-        return Node(rust_node)
+        return ActrNode(rust_node)
 
 
-class Node:
+class ActrNode:
     """
     High-level ActrNode wrapper
     
@@ -111,29 +110,29 @@ class Node:
         Start the node
         
         Returns:
-            Ref instance
+            ActrRef instance
         
         Raises:
             ActrRuntimeError: If node start fails
         """
         rust_ref = await self._rust.start()
-        return Ref(rust_ref)
+        return ActrRef(rust_ref)
     
     async def try_start(self):
         """
         Try to start the node
         
         Returns:
-            Ref instance
+            ActrRef instance
         
         Raises:
             ActrRuntimeError: If node start fails
         """
         rust_ref = await self._rust.try_start()
-        return Ref(rust_ref)
+        return ActrRef(rust_ref)
 
 
-class Ref:
+class ActrRef:
     """
     High-level ActrRef wrapper
     
@@ -165,7 +164,7 @@ class Ref:
             payload_type: Payload transmission type
         
         Returns:
-            Response protobuf object
+            Response bytes
         
         Raises:
             ActrRuntimeError: If RPC call fails
@@ -233,7 +232,7 @@ class Ref:
         await self._rust.wait_for_ctrl_c_and_shutdown()
 
 
-class Ctx:
+class Context:
     """
     High-level Context wrapper
     
@@ -277,8 +276,7 @@ class Ctx:
         route_key: str,
         request,
         timeout_ms: int = 30000,
-        payload_type: RustPayloadType = None,
-        response_type = None
+        payload_type: RustPayloadType = None
     ):
         """
         Execute request/response RPC call
@@ -289,10 +287,9 @@ class Ctx:
             request: Request protobuf object (not bytes)
             timeout_ms: Timeout in milliseconds
             payload_type: Payload transmission type
-            response_type: Optional Python protobuf class for automatic deserialization
         
         Returns:
-            Response protobuf object (if response_type provided) or bytes
+            Response bytes
         
         Raises:
             ActrRuntimeError: If RPC call fails
@@ -316,8 +313,7 @@ class Ctx:
             route_key,
             request_bytes,
             timeout_ms,
-            payload_type,
-            response_type
+            payload_type
         )
     
     async def tell(
@@ -417,20 +413,13 @@ actr = ActrDecorators()
 # Usage: from actr_python_sdk.binding import ActrSystem, ActrRef, etc.
 from . import binding
 
-# Convenience: expose Rust binding types directly for backward compatibility
-# but recommend using high-level API
-ActrSystem = binding.ActrSystem
-ActrNode = binding.ActrNode
-ActrRef = binding.ActrRef
-Context = binding.Context
-
 __all__ = [
     "__version__",
     # High-level Pythonic API (recommended, root package)
-    "System",
-    "Node",
-    "Ref",
-    "Ctx",
+    "ActrSystem",
+    "ActrNode",
+    "ActrRef",
+    "Context",
     "Dest",
     "PayloadType",
     "DataStream",
@@ -446,11 +435,6 @@ __all__ = [
     "ActrDecodeError",
     "ActrUnknownRoute",
     "ActrGateNotInitialized",
-    # Rust bindings (for backward compatibility and advanced use)
-    "ActrSystem",
-    "ActrNode",
-    "ActrRef",
-    "Context",
     # Submodules (for direct access)
     "binding",
     "decorators",
