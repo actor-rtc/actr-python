@@ -79,7 +79,7 @@ actr_python_sdk/
 **Exports**:
 - `ActrSystem`, `ActrNode`, `ActrRef`, `Context`
 - `Dest`, `PayloadType`
-- `DataStream`, `ActrId`, `ActrType`
+- `DataStream`
 - All exception types: `ActrRuntimeError`, `ActrTransportError`, etc.
 
 **Use Cases**:
@@ -113,7 +113,7 @@ actr_python_sdk/
 **Features**:
 - **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes; RPC responses are returned as `bytes` and should be deserialized manually via `ResponseType.FromString(response_bytes)`
 - **Direct exception raising**: All methods directly raise exceptions, following Python conventions
-- **Auto type conversion**: Automatically convert `ActrId` to `Dest` (e.g., `Dest.actor(actr_id)`)
+- **Manual destination wrapping**: Wrap actor id protobuf objects with `Dest.actor(actor_id)` before calling `Context.call()`/`Context.tell()`/`Context.send_stream()`
 - **Pythonic design**: Concise method names, reasonable parameters, following Python conventions
 
 #### `decorators/` - Decorator Implementation
@@ -141,7 +141,7 @@ actr_python_sdk/
 
 **Exports from `__init__.py`**:
 - High-level APIs: `ActrSystem`, `ActrNode`, `ActrRef`, `Context`
-- Types: `Dest`, `PayloadType`, `DataStream`, `ActrId`, `ActrType`
+- Types: `Dest`, `PayloadType`, `DataStream`
 - Exceptions: `ActrRuntimeError`, `ActrTransportError`, etc.
 - Decorators: `actr`, `service`, `rpc`
 - Rust binding: `binding` module (for advanced usage)
@@ -272,10 +272,10 @@ Classes in `__init__.py` wrap Rust objects:
 
 **Example**:
 ```python
-from actr_python_sdk import ActrSystem, Context, ActrRuntimeError
+from actr_python_sdk import ActrSystem, Context, Dest, ActrRuntimeError
 
 try:
-    response = await ctx.call(server_id, "route.key", request)
+    response = await ctx.call(Dest.actor(server_id), "route.key", request)
     # Directly use response, no need to check is_ok()
 except ActrRuntimeError as e:
     # Handle error

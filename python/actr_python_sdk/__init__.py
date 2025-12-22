@@ -34,7 +34,6 @@ from .binding import (
     ActrRef as RustActrRef,
     Dest as RustDest,
     PayloadType as RustPayloadType,
-    # ActrId and ActrType are protobuf types, imported separately when needed
     DataStream as RustDataStream,
     ActrRuntimeError,
     ActrTransportError,
@@ -255,15 +254,15 @@ class Context:
         """Get current request ID"""
         return self._rust.request_id()
     
-    async def discover(self, actr_type: Any):  # ActrType protobuf object
+    async def discover(self, actr_type: Any):
         """
         Discover route candidate
         
         Args:
-            actr_type: ActrType protobuf object
+            actr_type: protobuf type object
         
         Returns:
-            ActrId protobuf object
+            Actor id protobuf object
         
         Raises:
             ActrRuntimeError: If discovery fails
@@ -272,7 +271,7 @@ class Context:
     
     async def call(
         self,
-        target: Union[RustDest, Any],  # ActrId protobuf object or Dest
+        target: RustDest,
         route_key: str,
         request,
         timeout_ms: int = 30000,
@@ -282,7 +281,7 @@ class Context:
         Execute request/response RPC call
         
         Args:
-            target: Dest wrapper object or ActrId protobuf object
+            target: Dest wrapper object
             route_key: Route key string
             request: Request protobuf object (not bytes)
             timeout_ms: Timeout in milliseconds
@@ -297,10 +296,6 @@ class Context:
         """
         if payload_type is None:
             payload_type = RustPayloadType.RpcReliable
-        
-        # Convert ActrId to Dest if needed
-        if not isinstance(target, RustDest):
-            target = RustDest.actor(target)
         
         # Serialize request
         if not hasattr(request, 'SerializeToString'):
@@ -318,7 +313,7 @@ class Context:
     
     async def tell(
         self,
-        target: Union[RustDest, Any],  # ActrId protobuf object or Dest
+        target: RustDest,
         route_key: str,
         message,
         payload_type: RustPayloadType = None
@@ -327,7 +322,7 @@ class Context:
         Execute fire-and-forget message RPC call
         
         Args:
-            target: Dest wrapper object or ActrId protobuf object
+            target: Dest wrapper object
             route_key: Route key string
             message: Message protobuf object (not bytes)
             payload_type: Payload transmission type
@@ -338,10 +333,6 @@ class Context:
         """
         if payload_type is None:
             payload_type = RustPayloadType.RpcReliable
-        
-        # Convert ActrId to Dest if needed
-        if not isinstance(target, RustDest):
-            target = RustDest.actor(target)
         
         # Serialize message
         if not hasattr(message, 'SerializeToString'):
@@ -366,7 +357,7 @@ class Context:
     
     async def send_stream(
         self,
-        target: Union[RustDest, Any],  # ActrId protobuf object or Dest
+        target: RustDest,
         data_stream,
         payload_type: RustPayloadType = None
     ):
@@ -374,7 +365,7 @@ class Context:
         Send DataStream
         
         Args:
-            target: Dest wrapper object or ActrId protobuf object
+            target: Dest wrapper object
             data_stream: DataStream protobuf object or wrapper
             payload_type: Payload transmission type
         
@@ -383,10 +374,6 @@ class Context:
         """
         if payload_type is None:
             payload_type = RustPayloadType.StreamReliable
-        
-        # Convert ActrId to Dest if needed
-        if not isinstance(target, RustDest):
-            target = RustDest.actor(target)
         
         # Convert protobuf to wrapper if needed
         if not isinstance(data_stream, RustDataStream):
@@ -400,8 +387,6 @@ class Context:
 Dest = RustDest
 PayloadType = RustPayloadType
 DataStream = RustDataStream
-# ActrId and ActrType are protobuf types, should be imported from generated protobuf code
-# Example: from generated.actr_pb2 import ActrId, ActrType
 
 # Import decorators
 from .decorators import service, rpc, ActrDecorators
@@ -423,8 +408,6 @@ __all__ = [
     "Dest",
     "PayloadType",
     "DataStream",
-    "ActrId",
-    "ActrType",
     # Decorators (recommended)
     "actr",
     "service",

@@ -286,8 +286,7 @@ impl ContextPy {
                 )
                 .await
                 .map_err(map_protocol_error)?;
-            Python::attach(|py| Ok(PyBytes::new(py, &bytes).into_any().into()))
-                .map(Py::into_any)
+            Python::attach(|py| Ok(PyBytes::new(py, &bytes).into_any().into())).map(Py::into_any)
         })
     }
 
