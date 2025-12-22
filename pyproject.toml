@@ -3,7 +3,7 @@ requires = ["maturin>=1.8,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "actr-python-sdk"
+name = "actr-sdk"
 description = "Python SDK for Actor-RTC, backed by the actr_raw Rust extension module."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,13 +32,13 @@ python-source = "python"
 module-name = "actr_raw"
 bindings = "pyo3"
 strip = true
-# Explicitly include actr_python_sdk package
+# Explicitly include actr_sdk package
 include = [
-    "python/actr_python_sdk/**/*.py",
-    "python/actr_python_sdk/**/*.pyi",
-    "python/actr_python_sdk/py.typed",
+    "python/actr_sdk/**/*.py",
+    "python/actr_sdk/**/*.pyi",
+    "python/actr_sdk/py.typed",
 ]
-python-packages = ["actr_python_sdk"]
+python-packages = ["actr_sdk"]
 sdist-include = [
     "python/README.md",
     "python/DEMO.md",

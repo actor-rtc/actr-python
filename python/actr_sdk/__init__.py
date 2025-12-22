@@ -3,11 +3,11 @@ Actr Python SDK
 
 This module provides Python bindings for actr-runtime, including:
 - High-level Pythonic API: Python-friendly wrappers (root package)
-- Rust Binding: Direct Rust bindings (in .binding submodule, imports from actr_raw)
+- Rust Binding: Direct Rust bindings (in .actr_raw submodule, imports from actr_raw)
 - Decorators: @actr.service and @actr.rpc (in .decorators submodule)
 
 Recommended usage:
-    from actr_python_sdk import actr, ActrSystem
+    from actr_sdk import actr, ActrSystem
     
     @actr.service("my_service.EchoService")
     class MyService:
@@ -25,10 +25,10 @@ from importlib import metadata as _metadata
 from typing import Optional, Union, TypeVar, Any
 
 try:
-    __version__ = _metadata.version("actr-python-sdk")
+    __version__ = _metadata.version("actr-sdk")
 except _metadata.PackageNotFoundError:
     __version__ = "0.0.0"
-from .binding import (
+from .actr_raw import (
     ActrSystem as RustActrSystem,
     ActrNode as RustActrNode,
     ActrRef as RustActrRef,
@@ -395,8 +395,8 @@ from .decorators import service, rpc, ActrDecorators
 actr = ActrDecorators()
 
 # Re-export Rust binding module for advanced users who need direct access
-# Usage: from actr_python_sdk.binding import ActrSystem, ActrRef, etc.
-from . import binding
+# Usage: from actr_sdk.actr_raw import ActrSystem, ActrRef, etc.
+from . import actr_raw
 
 __all__ = [
     "__version__",
@@ -419,6 +419,6 @@ __all__ = [
     "ActrUnknownRoute",
     "ActrGateNotInitialized",
     # Submodules (for direct access)
-    "binding",
+    "actr_raw",
     "decorators",
 ]
