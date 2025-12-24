@@ -1,0 +1,87 @@
+# Service enable bitmask (binary representation):
+#   xxxxx
+#   ││││└─ Signaling (00001)
+#   │││└── STUN (00010)
+#   ││└─── TURN (00100)
+#   │└──── Authority (01000)
+#   └───── Managed (10000)
+# Examples: 0b11111 (or 31) means all five services are enabled.
+#           0b00001 (or 1) means only Signaling service is enabled.
+#           0b01001 (or 9) means Signaling and Authority services are enabled.
+#           0b10000 (or 16) means only Managed service is enabled.
+enable = 31 # STUN + TURN + Signaling
+
+actrix_shared_key = "dev-shared-key-for-testing"
+name = "actrix-shell-echo"
+env = "dev"
+sqlite_path = "database"
+location_tag = "local,dev,shell-echo"
+
+# worker threads, 0 means auto
+worker_threads = 0
+
+[observability]
+# Unified filter for logs and tracing (EnvFilter syntax). RUST_LOG overrides.
+filter_level = "debug,hyper=info"
+
+[observability.log]
+# Log output destination: console/file
+output = "console"
+# Log rotation (only applies when output = "file")
+rotate = false
+# Log file directory (only applies when output = "file")
+path = "logs/"
+
+[observability.tracing]
+# Distributed tracing export (requires building actrix with `--features opentelemetry`)
+enable = true
+service_name = "actrix-shell-echo"
+endpoint = "http://localhost:4317"
+
+[bind.http]
+domain_name = "localhost"
+ip = "0.0.0.0"
+port = 8081
+advertised_ip = "127.0.0.1"
+
+[bind.ice]
+domain_name = "localhost"
+ip = "0.0.0.0"
+port = 3478
+advertised_ip = "127.0.0.1"
+
+[turn]
+# 服务器公网IP，必须是实际可路由的IP地址
+public_ip = "127.0.0.1"
+public_port = 3478
+realm = "localhost"
+advertised_ip = "127.0.0.1"
+advertised_port = 3478
+relay_port_range = "49152-65535"
+
+[services.ks]
+
+[services.ais]
+
+[services.signaling]
+[services.signaling.server]
+ws_path = "/signaling"
+
+# Supervisor Platform Integration
+[supervisor]
+connect_timeout_secs = 30
+status_report_interval_secs = 60
+health_check_interval_secs = 30
+enable_tls = false
+max_clock_skew_secs = 300
+
+[supervisor.supervisord]
+node_name = "actrix-x"
+ip = "0.0.0.0"
+port = 50055
+advertised_ip = "127.0.0.1"
+
+[supervisor.client]
+node_id = "04e63566-56ca-49b0-894e-d23344cdbf6c"
+shared_secret = "e20f18131ef2481bbe7da94c092555be17b4049fd01e5e17f47081e80cb4e886"
+endpoint = "http://localhost:50051"

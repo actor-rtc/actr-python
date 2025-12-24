@@ -1,12 +1,12 @@
 """
 Decorator-based service definition for Actr Runtime
 
-Provides @actr.service and @actr.rpc decorators for easy service definition.
+Provides @actr_decorator.service and @actr_decorator.rpc decorators for easy service definition.
 
 Example:
-    @actr.service("my_service.EchoService")
+    @actr_decorator.service("my_service.EchoService")
     class MyService:
-        @actr.rpc
+        @actr_decorator.rpc
         async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
             return EchoResponse(message=req.message)
 """
@@ -15,6 +15,7 @@ import inspect
 from typing import Dict, Callable, Any, Optional, Type, get_type_hints
 from dataclasses import dataclass, field
 from functools import wraps
+from actr.workload import WorkloadBase
 
 
 @dataclass
@@ -46,9 +47,9 @@ def service(service_name: str):
     服务装饰器，标记一个类为 Actr 服务
     
     用法:
-        @actr.service("my_service.EchoService")
+        @actr_decorator.service("my_service.EchoService")
         class MyService:
-            @actr.rpc
+            @actr_decorator.rpc
             async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
                 return EchoResponse(message=req.message)
     
@@ -148,12 +149,12 @@ def rpc(route_key: Optional[str] = None):
     RPC 方法装饰器，标记一个方法为 RPC 处理函数
     
     用法:
-        @actr.rpc
+        @actr_decorator.rpc
         async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
             return EchoResponse(message=req.message)
         
         或者指定自定义 route_key:
-        @actr.rpc(route_key="custom.route.key")
+        @actr_decorator.rpc(route_key="custom.route.key")
         async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
             return EchoResponse(message=req.message)
     
@@ -181,7 +182,7 @@ def rpc(route_key: Optional[str] = None):
         
         return wrapper
     
-    # 如果直接调用 @actr.rpc（无参数），func 就是第一个参数
+    # 如果直接调用 @actr_decorator.rpc（无参数），func 就是第一个参数
     if callable(route_key):
         func = route_key
         func._is_rpc = True
@@ -276,7 +277,7 @@ def _generate_workload(metadata: ServiceMetadata):
     Returns:
         Workload 类
     """
-    class AutoWorkload:
+    class AutoWorkload(WorkloadBase):
         """自动生成的 Workload"""
         
         def __init__(self, handler: Any):
@@ -287,11 +288,7 @@ def _generate_workload(metadata: ServiceMetadata):
                 handler: Handler 实例（用户定义的业务逻辑类）
             """
             self.handler = handler
-            self._dispatcher = metadata.dispatcher
-        
-        def get_dispatcher(self):
-            """返回与此 Workload 关联的 Dispatcher"""
-            return self._dispatcher
+            super().__init__(metadata.dispatcher)
         
         async def on_start(self, ctx) -> None:
             """生命周期钩子：Actor 启动时调用"""
@@ -323,7 +320,7 @@ class ActrDecorators:
     """
     装饰器命名空间
     
-    提供 @actr.service 和 @actr.rpc 装饰器
+    提供 @actr_decorator.service 和 @actr_decorator.rpc 装饰器
     """
     
     @staticmethod
@@ -335,4 +332,3 @@ class ActrDecorators:
     def rpc(route_key: Optional[str] = None):
         """RPC 方法装饰器"""
         return rpc(route_key)
-

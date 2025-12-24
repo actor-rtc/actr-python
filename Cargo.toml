@@ -1,6 +1,6 @@
 [package]
 name = "actr-python"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
@@ -16,15 +16,18 @@ name = "actr_python"
 crate-type = ["cdylib"]
 
 [dependencies]
-actr-runtime = { path = "../actr/crates/runtime", version = "0.1.6" }
-actr-config = { path = "../actr/crates/config", version = "0.1.4" }
-actr-framework = { path = "../actr/crates/framework", version = "0.1.4" }
-actr-protocol = { path = "../actr/crates/protocol", version = "0.1.5" }
+# TODO: Use Version instead of git
+actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "0e4ca6c8a7786c6ddd49dd7d6c4d862aa264177b" }
+actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "0e4ca6c8a7786c6ddd49dd7d6c4d862aa264177b" }
+actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "0e4ca6c8a7786c6ddd49dd7d6c4d862aa264177b" }
+actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "0e4ca6c8a7786c6ddd49dd7d6c4d862aa264177b" }
 tokio = { version = "1.48", features = ["full"] }
 bytes = "1.10"
 prost = "0.14"
 async-trait = "0.1"
 tracing = "0.1"
+anyhow = "1.0"
+prost-types = "0.14"
 
 pyo3 = { version = "0.27", features = ["extension-module", "abi3-py312"] }
 pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }

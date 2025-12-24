@@ -35,7 +35,7 @@ actr_ref -> local StreamClient handler -> (ctx.call, ctx.send_data_stream) -> re
 The `start.sh` script will automatically:
 - Create a Python virtual environment
 - Install dependencies
-- Build and install actr_sdk
+- Build and install actr
 - Generate protobuf code
 - Start actrix (signaling server)
 - Set up realms
@@ -48,7 +48,7 @@ cd actr-python/examples/data-stream-peer-concurrent
 
 ### Option 2: Manual Setup
 
-1. Install actr_sdk:
+1. Install actr:
 
 ```bash
 cd actr-python  # Go to actr-python root
@@ -74,6 +74,11 @@ protoc -I "$ACTR_PROTO_DIR" --python_out=generated \
   "$ACTR_PROTO_DIR/actr/options.proto" \
   "$ACTR_PROTO_DIR/actr.proto" \
   "$ACTR_PROTO_DIR/package.proto"
+
+# Rename generated/actr/ to generated/actr_proto/ to avoid conflict with actr package
+if [ -d "generated/actr" ]; then
+    mv generated/actr generated/actr_proto
+fi
 ```
 
 ## Run
@@ -101,8 +106,35 @@ python client.py --actr-toml Actr.toml client-1 5
 
 ## Notes
 
-- The Python SDK uses decorators (`@actr.service`, `@actr.rpc`) to define services
+- The Python SDK uses decorators (`@actr_decorator.service`, `@actr_decorator.rpc`) to define services
 - DataStream callbacks are registered with `ctx.register_stream()`
 - DataStream messages are sent with `ctx.send_stream()`
 - The high-level API automatically handles serialization/deserialization
 
+## Codegen Mode (actr gen --lang python)
+
+This example also includes codegen-based implementations:
+- `server/server_codegen.py`
+- `client/client_codegen.py`
+Custom Workload variants (with on_start/on_stop):
+- `server/server_workload_custom.py`
+- `client/client_workload_custom.py`
+
+To generate Python glue code with `actr-cli`:
+
+```bash
+cd actr-python/examples/data-stream-peer-concurrent
+actr gen --lang python --input=proto --output=generated --no-scaffold
+```
+
+Then run:
+
+```bash
+cd server
+python server_codegen.py --actr-toml Actr.toml
+```
+
+```bash
+cd client
+python client_codegen.py --actr-toml Actr.toml client-1 5
+```

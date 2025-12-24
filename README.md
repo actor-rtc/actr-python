@@ -1,11 +1,11 @@
-# Actr Python SDK (`actr_sdk` + `actr_raw`)
+# Actr Python SDK (`actr` + `actr_raw`)
 
-Actr's Python SDK is a mixed Rust/Python package that ships a Pyo3-powered extension module (`actr_raw`) together with a Pythonic wrapper layer (`actr_sdk`). The Rust layer exposes the raw bindings, while the SDK layer provides decorators for defining services, a high-level `ActrSystem` API, and low-level bindings for advanced use cases.
+Actr's Python SDK is a mixed Rust/Python package that ships a Pyo3-powered extension module (`actr_raw`) together with a Pythonic wrapper layer (`actr`). The Rust layer exposes the raw bindings, while the SDK layer provides decorators for defining services, a high-level `ActrSystem` API, and low-level bindings for advanced use cases.
 
 ## Layout
 - `pyproject.toml` – Python packaging metadata for maturin/wheel builds
 - `Cargo.toml` / `src/` – Rust extension implemented with Pyo3 (exports `actr_raw`)
-- `python/` – Pure-Python helpers, decorators, and examples (packaged as `actr_sdk`)
+- `python/` – Pure-Python helpers, decorators, and examples (packaged as `actr`)
 - `python/README.md` – Decorator-focused guide (kept with the Python sources)
 
 ## Quick start
@@ -19,12 +19,12 @@ maturin develop --release  # build and install into the current virtualenv
 Then use the SDK:
 
 ```python
-from actr_sdk import ActrSystem, actr
+from actr import ActrSystem, actr_decorator
 from generated import my_service_pb2
 
-@actr.service("my_service.EchoService")
+@actr_decorator.service("my_service.EchoService")
 class MyService:
-    @actr.rpc
+    @actr_decorator.rpc
     async def echo(self, req: my_service_pb2.EchoRequest, ctx):
         return my_service_pb2.EchoResponse(message=f"Echo: {req.message}")
 
@@ -44,18 +44,18 @@ Artifacts produced by `maturin build` include the Rust extension (`actr_raw`) an
 
 **Note:** 
 - When using `pip install` directly on the source directory
-- For development, use `maturin develop --release` which will install both `actr_raw` and `actr_sdk` packages (via editable install).
+- For development, use `maturin develop --release` which will install both `actr_raw` and `actr` packages (via editable install).
 
 ## Development notes
 - The crate depends on the local Rust workspace crates under `../actr/crates/*`; keep those paths in sync when moving the SDK.
 - Set `RUST_LOG=debug` while developing to surface runtime diagnostics from the binding layer.
-- Python typing support is shipped via `python/actr_sdk/py.typed`.
+- Python typing support is shipped via `python/actr/py.typed`.
 
 ---
 
 # Architecture Documentation
 
-This section provides detailed information about the `actr_sdk` Python package architecture, package structure, and implementation details.
+This section provides detailed information about the `actr` Python package architecture, package structure, and implementation details.
 
 ## Package Structure
 
@@ -63,7 +63,7 @@ This section provides detailed information about the `actr_sdk` Python package a
 actr/
 ├── __init__.py          # Root package entry, exports all public APIs
 ├── actr_raw/            # Rust binding layer (low-level API, imports actr_raw)
-└── decorators/          # Decorator implementation (@actr.service, @actr.rpc)
+└── decorators/          # Decorator implementation (@actr_decorator.service, @actr_decorator.rpc)
 ```
 
 ### Module Overview
@@ -122,13 +122,13 @@ actr/
 
 **Main Decorators**:
 
-1. **`@actr.service(service_name)`**
+1. **`@actr_decorator.service(service_name)`**
    - Mark class as Actr service
-   - Automatically collect all `@actr.rpc` methods
+   - Automatically collect all `@actr_decorator.rpc` methods
    - Automatically generate Dispatcher and Workload
    - Add convenience method `create_workload()`
 
-2. **`@actr.rpc` or `@actr.rpc(route_key="...")`**
+2. **`@actr_decorator.rpc` or `@actr_decorator.rpc(route_key="...")`**
    - Mark method as RPC handler function
    - Automatically generate route_key (default: `{service_name}.{method_name}`)
    - Support custom route_key
@@ -143,7 +143,7 @@ actr/
 - High-level APIs: `ActrSystem`, `ActrNode`, `ActrRef`, `Context`
 - Types: `Dest`, `PayloadType`, `DataStream`
 - Exceptions: `ActrRuntimeError`, `ActrTransportError`, etc.
-- Decorators: `actr_sdk`, `service`, `rpc`
+- Decorators: `actr_decorator`, `service`, `rpc`
 - Rust binding: `actr_raw` module (for advanced usage)
 
 ---
@@ -154,7 +154,7 @@ actr/
 
 ```
 ┌─────────────────────────────────────┐
-│  Decorator API (@actr.service, @actr.rpc) │  ← Simplest, recommended
+│  Decorator API (@actr_decorator.service, @actr_decorator.rpc) │  ← Simplest, recommended
 ├─────────────────────────────────────┤
 │  High-level Pythonic API (ActrSystem, ActrRef, Context) │  ← Python-friendly, recommended
 ├─────────────────────────────────────┤
@@ -184,11 +184,11 @@ actr/
 **Features**: Simplest, automatically generates all code
 
 ```python
-from actr_sdk import actr, ActrSystem
+from actr import actr_decorator, ActrSystem
 
-@actr.service("my_service.EchoService")
+@actr_decorator.service("my_service.EchoService")
 class MyService:
-    @actr.rpc
+    @actr_decorator.rpc
     async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
         return EchoResponse(message=req.message)
 
@@ -204,7 +204,7 @@ ref = await node.start()
 **Features**: Python-friendly, automatic serialization handling
 
 ```python
-from actr_sdk import ActrSystem, ActrRef, Context
+from actr import ActrSystem, ActrRef, Context
 
 # Use high-level API
 system = await ActrSystem.from_toml("Actr.toml")
@@ -226,7 +226,7 @@ except ActrRuntimeError as e:
 **Features**: Direct access to Rust APIs, maximum control
 
 ```python
-from actr_sdk.actr_raw import ActrSystem, ActrRef
+from actr.actr_raw import ActrSystem, ActrRef
 
 # Use Rust binding
 system = await ActrSystem.from_toml("Actr.toml")
@@ -259,7 +259,7 @@ Classes in `__init__.py` wrap Rust objects:
 `decorators/__init__.py` implements the decorator system:
 
 - **Service registry**: Global `_service_registry` stores service metadata
-- **Method collection**: Use `inspect` to collect all `@actr.rpc` methods
+- **Method collection**: Use `inspect` to collect all `@actr_decorator.rpc` methods
 - **Type inference**: Use `get_type_hints` to infer request/response types
 - **Auto generation**: Dynamically generate Dispatcher and Workload classes
 
@@ -272,7 +272,7 @@ Classes in `__init__.py` wrap Rust objects:
 
 **Example**:
 ```python
-from actr_sdk import ActrSystem, Context, Dest, ActrRuntimeError
+from actr import ActrSystem, Context, Dest, ActrRuntimeError
 
 try:
     response = await ctx.call(Dest.actor(server_id), "route.key", request)
@@ -298,11 +298,11 @@ except ActrRuntimeError as e:
 ### Quick Start (Recommended)
 
 ```python
-from actr_sdk import actr, ActrSystem
+from actr import actr_decorator, ActrSystem
 
-@actr.service("my_service.EchoService")
+@actr_decorator.service("my_service.EchoService")
 class MyService:
-    @actr.rpc
+    @actr_decorator.rpc
     async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
         return EchoResponse(message=req.message)
 
@@ -317,7 +317,7 @@ async def main():
 ### Using High-level API (Without Decorators)
 
 ```python
-from actr_sdk import ActrSystem, ActrRef, Context
+from actr import ActrSystem, ActrRef, Context
 
 class MyWorkload:
     def __init__(self, handler):
@@ -342,7 +342,7 @@ async def main():
 **Note**: Rust Binding now also directly raises exceptions, consistent with high-level API behavior.
 
 ```python
-from actr_sdk.actr_raw import ActrSystem, ActrRef, ActrRuntimeError
+from actr.actr_raw import ActrSystem, ActrRef, ActrRuntimeError
 
 async def main():
     try:
@@ -365,7 +365,7 @@ async def main():
 
 1. **Separated Rust Binding**: Created `actr_raw/` module, clearly distinguishing Rust binding and Python implementation
 2. **High-level API Wrapping**: Created high-level API in `__init__.py`, providing Pythonic high-level APIs
-3. **Decorator Support**: Implemented `@actr.service` and `@actr.rpc` decorators
+3. **Decorator Support**: Implemented `@actr_decorator.service` and `@actr_decorator.rpc` decorators
 4. **Unified Exception Handling**: All API layers (Rust Binding and high-level API) directly raise exceptions
    - Follows Python conventions: use `try/except` for error handling
    - Type-safe: Exception types are clear (`ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.)
@@ -374,7 +374,7 @@ async def main():
 
 ### Recommended Usage
 
-- **Daily Development**: Use decorator API (`@actr.service`, `@actr.rpc`)
+- **Daily Development**: Use decorator API (`@actr_decorator.service`, `@actr_decorator.rpc`)
 - **Need Control**: Use high-level API (`ActrSystem`, `ActrRef`, `Context`)
 - **Advanced Scenarios**: Use Rust Binding (`actr_raw` module)
 

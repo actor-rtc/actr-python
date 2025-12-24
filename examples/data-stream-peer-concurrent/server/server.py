@@ -6,63 +6,65 @@ import logging
 import sys
 from pathlib import Path
 
-# Make generated/ importable
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "generated"))
+from actr import ActrSystem, Context, Dest, DataStream, WorkloadBase
 
-# Configure logging
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "generated"))
+sys.path.insert(0, str(ROOT))
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-from actr_sdk import actr, ActrSystem, Context, Dest, DataStream  # type: ignore
-
-from generated import package_pb2, actr_pb2
+from generated import package_pb2
 from generated import data_stream_peer_pb2 as pb2
+from generated import stream_server_actor as server_actor
 
 
-@actr.service("data_stream_peer.StreamServer")
-class StreamServerService:
-    """StreamServer service implementation"""
-    
+class StreamServerService(server_actor.StreamServerHandler):
+    """StreamServer service implementation (custom workload)"""
+
     def __init__(self) -> None:
-        self.received_count = {"count": 0}  # Use dict to allow modification in nested function
+        self.received_count = {"count": 0}
         logger.info("StreamServerService initialized")
 
-    @actr.rpc(route_key="data_stream_peer.StreamServer.PrepareStream")
-    async def prepare_stream(self, req: pb2.PrepareServerStreamRequest, ctx) -> pb2.PrepareStreamResponse:
-        """Handle PrepareStream RPC request"""
-        # Convert Rust binding context to high-level Context wrapper if needed
+    async def prepare_stream(
+        self, req: pb2.PrepareServerStreamRequest, ctx
+    ) -> pb2.PrepareStreamResponse:
         if not isinstance(ctx, Context):
             ctx = Context(ctx)
-        
+
         caller = ctx.caller_id()
         if caller is None:
             raise RuntimeError("No caller_id in ctx")
 
         logger.info(
-            f"prepare_stream: stream_id={req.stream_id}, expected_count={req.expected_count}, caller={caller}"
+            "prepare_stream: stream_id=%s, expected_count=%s, caller=%s",
+            req.stream_id,
+            req.expected_count,
+            caller,
         )
 
         self.received_count["count"] = 0
         stream_id = req.stream_id
         expected_count = req.expected_count
 
-        # Register stream callback to receive DataStream messages from client
         async def stream_callback(data_stream: package_pb2.DataStream, sender_id) -> None:
             self.received_count["count"] += 1
             text = data_stream.payload.decode("utf-8", errors="replace")
             logger.info(
-                f"server: stream {data_stream.stream_id} received {self.received_count['count']}/{expected_count} "
-                f"from {sender_id}: {text}"
+                "server: stream %s received %s/%s from %s: %s",
+                data_stream.stream_id,
+                self.received_count["count"],
+                expected_count,
+                sender_id,
+                text,
             )
 
         await ctx.register_stream(stream_id, stream_callback)
 
-        # Call client's PrepareClientStream
         prepare_client_req = pb2.PrepareClientStreamRequest(
             stream_id=stream_id,
             expected_count=expected_count,
@@ -75,22 +77,21 @@ class StreamServerService:
                 prepare_client_req,
             )
             prepare_client_resp = pb2.PrepareStreamResponse.FromString(response_bytes)
-            
+
             if not prepare_client_resp.ready:
                 return pb2.PrepareStreamResponse(
                     ready=False,
                     message=prepare_client_resp.message,
                 )
         except Exception as e:
-            logger.error(f"Failed to call PrepareClientStream: {e}")
+            logger.error("Failed to call PrepareClientStream: %s", e)
             return pb2.PrepareStreamResponse(
                 ready=False,
                 message=f"Failed to prepare client stream: {e}",
             )
 
-        # Start background task to send DataStream messages back to client
         async def _send_stream_messages() -> None:
-            logger.info(f"sending data stream back to client: {caller}")
+            logger.info("sending data stream back to client: %s", caller)
             for i in range(1, expected_count + 1):
                 message = f"[server] message {i}"
                 data_stream_pb = package_pb2.DataStream(
@@ -100,14 +101,14 @@ class StreamServerService:
                 )
                 data_stream_wrapper = DataStream(data_stream_pb)
                 target = Dest.actor(caller)
-                
+
                 try:
                     await ctx.send_stream(target, data_stream_wrapper)
-                    logger.info(f"server sending {i}/{expected_count}: {message}")
+                    logger.info("server sending %s/%s: %s", i, expected_count, message)
                 except Exception as e:
-                    logger.warn(f"server send_data_stream failed: {e}")
+                    logger.warning("server send_data_stream failed: %s", e)
                     break
-                
+
                 if i < expected_count:
                     await asyncio.sleep(1.0)
 
@@ -119,28 +120,37 @@ class StreamServerService:
         )
 
 
+class StreamServerWorkload(WorkloadBase):
+    def __init__(self, handler: StreamServerService):
+        self.handler = handler
+        super().__init__(server_actor.StreamServerDispatcher())
+
+    async def on_start(self, ctx) -> None:
+        logger.info("StreamServerWorkload on_start")
+
+    async def on_stop(self, ctx) -> None:
+        logger.info("StreamServerWorkload on_stop")
+
+
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--actr-toml", required=True)
     args = ap.parse_args()
-    logger.info(f"Starting server with args: {args}")
+    logger.info("Starting server with args: %s", args)
     logger.info("Loading ActrSystem from TOML...")
-    
-    # Use ActrSystem (high-level API)
+
     system = await ActrSystem.from_toml(args.actr_toml)
     logger.info("ActrSystem loaded, creating workload...")
-    
-    # Use decorator-generated create_workload() method
-    workload = StreamServerService.create_workload()
+
+    workload = StreamServerWorkload(StreamServerService())
     logger.info("Workload created, attaching to system...")
-    
+
     node = system.attach(workload)
     logger.info("ActrNode attached, starting...")
-    
-    # Use ActrNode.start() - automatically handles exceptions
+
     ref = await node.start()
-    logger.info(f"✅ Python Server started! Actor ID: {ref.actor_id()}")
-    
+    logger.info("✅ Python Server started! Actor ID: %s", ref.actor_id())
+
     await ref.wait_for_ctrl_c_and_shutdown()
     logger.info("Server shutting down...")
     return 0
@@ -148,4 +158,3 @@ async def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(main()))
-

@@ -4,14 +4,14 @@ Actr Python SDK
 This module provides Python bindings for actr-runtime, including:
 - High-level Pythonic API: Python-friendly wrappers (root package)
 - Rust Binding: Direct Rust bindings (in .actr_raw submodule, imports from actr_raw)
-- Decorators: @actr.service and @actr.rpc (in .decorators submodule)
+- Decorators: @actr_decorator.service and @actr_decorator.rpc (in .decorators submodule)
 
 Recommended usage:
-    from actr_sdk import actr, ActrSystem
+    from actr import actr_decorator, ActrSystem
     
-    @actr.service("my_service.EchoService")
+    @actr_decorator.service("my_service.EchoService")
     class MyService:
-        @actr.rpc
+        @actr_decorator.rpc
         async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
             return EchoResponse(message=req.message)
     
@@ -25,7 +25,7 @@ from importlib import metadata as _metadata
 from typing import Optional, Union, TypeVar, Any
 
 try:
-    __version__ = _metadata.version("actr-sdk")
+    __version__ = _metadata.version("actr")
 except _metadata.PackageNotFoundError:
     __version__ = "0.0.0"
 from .actr_raw import (
@@ -42,6 +42,7 @@ from .actr_raw import (
     ActrGateNotInitialized,
   
 )
+from .workload import WorkloadBase  
 
 # Type variables for generic methods
 T = TypeVar('T')
@@ -392,10 +393,10 @@ DataStream = RustDataStream
 from .decorators import service, rpc, ActrDecorators
 
 # Create decorator namespace
-actr = ActrDecorators()
+actr_decorator = ActrDecorators()
 
 # Re-export Rust binding module for advanced users who need direct access
-# Usage: from actr_sdk.actr_raw import ActrSystem, ActrRef, etc.
+# Usage: from actr.actr_raw import ActrSystem, ActrRef, etc.
 from . import actr_raw
 
 __all__ = [
@@ -409,7 +410,7 @@ __all__ = [
     "PayloadType",
     "DataStream",
     # Decorators (recommended)
-    "actr",
+    "actr_decorator",
     "service",
     "rpc",
     # Exceptions
