@@ -37,6 +37,21 @@ class PayloadType(Enum):
     StreamReliable = ...
     StreamLatencyFirst = ...
 
+# ActrId binding
+class ActrId:
+    """Actor ID binding type."""
+    @staticmethod
+    def from_bytes(bytes: bytes) -> "ActrId": ...
+    def to_bytes(self) -> bytes: ...
+
+# ActrType binding
+class ActrType:
+    """Actor type binding."""
+    def __init__(self, manufacturer: str, name: str) -> None: ...
+    def to_bytes(self) -> bytes: ...
+    def manufacturer(self) -> str: ...
+    def name(self) -> str: ...
+
 # Dest class for specifying message targets
 class Dest:
     """Destination identifier for messages."""
@@ -52,7 +67,7 @@ class Dest:
         ...
     
     @staticmethod
-    def actor(actr_id: Any) -> "Dest":
+    def actor(actr_id: ActrId) -> "Dest":
         """
         Create a Dest targeting a specific actor by ID.
         
@@ -76,7 +91,7 @@ class Dest:
         """Check if this Dest targets a specific actor."""
         ...
     
-    def as_actor_id(self) -> Optional[Any]:
+    def as_actor_id(self) -> Optional[ActrId]:
         """Get the actor ID if this Dest targets an actor, otherwise None."""
         ...
 
@@ -178,7 +193,7 @@ class ActrRef:
     """Reference to a running actor, used for external interaction."""
     
     def actor_id(self) -> Any:
-        """Get the actor's ID (protobuf ActrId object)."""
+        """Get the actor's ID."""
         ...
     
     def shutdown(self) -> None:
@@ -234,11 +249,11 @@ class ActrRef:
 class Context:
     """Context provided to workload methods for actor operations."""
     
-    def self_id(self) -> Any:
+    def self_id(self) -> ActrId:
         """Get the current actor's ID."""
         ...
     
-    def caller_id(self) -> Optional[Any]:
+    def caller_id(self) -> Optional[ActrId]:
         """Get the caller's actor ID, if available."""
         ...
     
@@ -246,12 +261,12 @@ class Context:
         """Get the current request ID."""
         ...
     
-    async def discover_route_candidate(self, actr_type: Any) -> Any:
+    async def discover_route_candidate(self, actr_type: ActrType) -> ActrId:
         """
         Discover a route candidate by actor type.
         
         Args:
-            actr_type: Protobuf ActrType object
+            actr_type: ActrType binding
         
         Returns:
             Actor ID of a discovered candidate
@@ -302,7 +317,7 @@ class Context:
     async def register_stream(
         self,
         stream_id: str,
-        callback: Callable[[DataStream, Any], Coroutine[Any, Any, None]],
+        callback: Callable[[DataStream, ActrId], Coroutine[Any, Any, None]],
     ) -> None:
         """
         Register a callback for receiving stream data.
@@ -338,6 +353,8 @@ __all__ = [
     "ActrNode",
     "ActrRef",
     "Context",
+    "ActrId",
+    "ActrType",
     "Dest",
     "PayloadType",
     "DataStream",

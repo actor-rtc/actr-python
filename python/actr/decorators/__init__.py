@@ -250,6 +250,9 @@ def _generate_dispatcher(metadata: ServiceMetadata):
                         ) from e
                     
                     # 调用 Handler 方法
+                    from actr import Context
+                    if not isinstance(ctx, Context):
+                        ctx = Context(ctx)
                     method = getattr(handler, method_name)
                     resp = await method(req, ctx)
                     

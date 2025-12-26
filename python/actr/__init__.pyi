@@ -6,7 +6,8 @@ from .actr_raw import (
     ActrSystem as RustActrSystem,
     ActrNode as RustActrNode,
     ActrRef as RustActrRef,
-    Context as RustContext,
+    ActrId as RustActrId,
+    ActrType as RustActrType,
     Dest as RustDest,
     PayloadType as RustPayloadType,
     DataStream as RustDataStream,
@@ -38,7 +39,7 @@ class ActrNode:
 
 class ActrRef:
     def __init__(self, rust_ref: RustActrRef) -> None: ...
-    def actor_id(self) -> Any: ...
+    def actor_id(self) -> RustActrId: ...
     async def call(
         self,
         route_key: str,
@@ -58,11 +59,11 @@ class ActrRef:
 
 
 class Context:
-    def __init__(self, rust_ctx: RustContext) -> None: ...
-    def self_id(self) -> Any: ...
-    def caller_id(self) -> Any: ...
+    def __init__(self, rust_ctx: Any) -> None: ...
+    def self_id(self) -> RustActrId: ...
+    def caller_id(self) -> Optional[RustActrId]: ...
     def request_id(self) -> str: ...
-    async def discover(self, actr_type: Any) -> Any: ...
+    async def discover(self, actr_type: RustActrType) -> RustActrId: ...
     async def call(
         self,
         target: RustDest,
@@ -81,42 +82,32 @@ class Context:
     async def register_stream(
         self,
         stream_id: str,
-        callback: Callable[[RustDataStream, Any], Coroutine[Any, Any, None]],
+        callback: Callable[[RustDataStream, RustActrId], Coroutine[Any, Any, None]],
     ) -> None: ...
     async def unregister_stream(self, stream_id: str) -> None: ...
     async def send_stream(
         self,
         target: RustDest,
-        data_stream: Any,
+        data_stream: RustDataStream,
         payload_type: Optional[RustPayloadType] = ...,
     ) -> None: ...
-
-
-def service(service_name: str) -> Callable[[Type[T]], Type[T]]: ...
-
-def rpc(route_key: Optional[str] = ...) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
-
-
-class ActrDecorators:
-    @staticmethod
-    def service(service_name: str) -> Callable[[Type[T]], Type[T]]: ...
-    @staticmethod
-    def rpc(route_key: Optional[str] = ...) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
-
-
-actr_decorator: ActrDecorators
 
 Dest = RustDest
 PayloadType = RustPayloadType
 DataStream = RustDataStream
+ActrId = RustActrId
+ActrType = RustActrType
 
 from . import actr_raw
+from .workload import WorkloadBase
 
 __all__ = [
     "ActrSystem",
     "ActrNode",
     "ActrRef",
     "Context",
+    "ActrId",
+    "ActrType",
     "Dest",
     "PayloadType",
     "DataStream",
@@ -125,9 +116,6 @@ __all__ = [
     "ActrDecodeError",
     "ActrUnknownRoute",
     "ActrGateNotInitialized",
-    "service",
-    "rpc",
-    "ActrDecorators",
-    "actr_decorator",
     "actr_raw",
+    "WorkloadBase",
 ]

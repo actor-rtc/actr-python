@@ -32,6 +32,8 @@ from .actr_raw import (
     ActrSystem as RustActrSystem,
     ActrNode as RustActrNode,
     ActrRef as RustActrRef,
+    ActrId as RustActrId,
+    ActrType as RustActrType,
     Dest as RustDest,
     PayloadType as RustPayloadType,
     DataStream as RustDataStream,
@@ -40,13 +42,9 @@ from .actr_raw import (
     ActrDecodeError,
     ActrUnknownRoute,
     ActrGateNotInitialized,
-  
 )
 from .workload import WorkloadBase  
 
-# Type variables for generic methods
-T = TypeVar('T')
-R = TypeVar('R')
 
 
 class ActrSystem:
@@ -80,7 +78,7 @@ class ActrSystem:
         rust_system = await RustActrSystem.from_toml(path)
         return ActrSystem(rust_system)
     
-    def attach(self, workload):
+    def attach(self, workload:Workload):
         """
         Attach workload to system
         
@@ -143,7 +141,7 @@ class ActrRef:
         """Initialize with Rust ActrRef"""
         self._rust = rust_ref
     
-    def actor_id(self):
+    def actor_id(self) -> "ActrId":
         """Get Actor ID"""
         return self._rust.actor_id()
     
@@ -152,7 +150,7 @@ class ActrRef:
         route_key: str,
         request,
         timeout_ms: int = 30000,
-        payload_type: RustPayloadType = None
+        payload_type: "PayloadType" = None
     ):
         """
         Call Actor method (Shell → Workload RPC)
@@ -190,7 +188,7 @@ class ActrRef:
         self,
         route_key: str,
         message,
-        payload_type: RustPayloadType = None
+        payload_type: "PayloadType" = None
     ):
         """
         Send one-way message (Shell → Workload, fire-and-forget)
@@ -243,11 +241,11 @@ class Context:
         """Initialize with Rust Context"""
         self._rust = rust_ctx
     
-    def self_id(self):
+    def self_id(self) -> "ActrId":
         """Get self Actor ID"""
         return self._rust.self_id()
     
-    def caller_id(self):
+    def caller_id(self) -> Optional["ActrId"]:
         """Get caller Actor ID"""
         return self._rust.caller_id()
     
@@ -255,15 +253,15 @@ class Context:
         """Get current request ID"""
         return self._rust.request_id()
     
-    async def discover(self, actr_type: Any):
+    async def discover(self, actr_type: "ActrType"):
         """
         Discover route candidate
         
         Args:
-            actr_type: protobuf type object
+            actr_type: ActrType binding object
         
         Returns:
-            Actor id protobuf object
+            Actor id binding object
         
         Raises:
             ActrRuntimeError: If discovery fails
@@ -272,17 +270,17 @@ class Context:
     
     async def call(
         self,
-        target: RustDest,
+        target: "Dest",
         route_key: str,
         request,
         timeout_ms: int = 30000,
-        payload_type: RustPayloadType = None
+        payload_type: "PayloadType" = None
     ):
         """
         Execute request/response RPC call
         
         Args:
-            target: Dest wrapper object
+            target: Dest binding object
             route_key: Route key string
             request: Request protobuf object (not bytes)
             timeout_ms: Timeout in milliseconds
@@ -314,16 +312,16 @@ class Context:
     
     async def tell(
         self,
-        target: RustDest,
+        target: "Dest",
         route_key: str,
         message,
-        payload_type: RustPayloadType = None
+        payload_type: "PayloadType" = None
     ):
         """
         Execute fire-and-forget message RPC call
         
         Args:
-            target: Dest wrapper object
+            target: Dest binding object
             route_key: Route key string
             message: Message protobuf object (not bytes)
             payload_type: Payload transmission type
@@ -349,8 +347,15 @@ class Context:
         )
     
     async def register_stream(self, stream_id: str, callback):
-        """Register DataStream callback"""
-        await self._rust.register_stream(stream_id, callback)
+        """Register DataStream callback (callback receives DataStream and ActrId)"""
+        async def _wrapped(data_stream, sender_id):
+            if not isinstance(sender_id, ActrId) and hasattr(
+                sender_id, "SerializeToString"
+            ):
+                sender_id = ActrId.from_bytes(sender_id.SerializeToString())
+            return await callback(data_stream, sender_id)
+
+        await self._rust.register_stream(stream_id, _wrapped)
     
     async def unregister_stream(self, stream_id: str):
         """Unregister DataStream"""
@@ -358,16 +363,16 @@ class Context:
     
     async def send_stream(
         self,
-        target: RustDest,
-        data_stream,
-        payload_type: RustPayloadType = None
+        target: "Dest",
+        data_stream: "DataStream",
+        payload_type: "PayloadType" = None
     ):
         """
         Send DataStream
         
         Args:
             target: Dest wrapper object
-            data_stream: DataStream protobuf object or wrapper
+            data_stream: DataStream object
             payload_type: Payload transmission type
         
         Raises:
@@ -388,6 +393,8 @@ class Context:
 Dest = RustDest
 PayloadType = RustPayloadType
 DataStream = RustDataStream
+ActrId = RustActrId
+ActrType = RustActrType
 
 # Import decorators
 from .decorators import service, rpc, ActrDecorators
@@ -406,6 +413,8 @@ __all__ = [
     "ActrNode",
     "ActrRef",
     "Context",
+    "ActrId",
+    "ActrType",
     "Dest",
     "PayloadType",
     "DataStream",

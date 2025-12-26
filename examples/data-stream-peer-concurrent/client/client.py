@@ -9,11 +9,10 @@ from pathlib import Path
 from actr import (
     ActrSystem,
     ActrRef,
-    Context,
     Dest,
-    DataStream,
     ActrRuntimeError,
     WorkloadBase,
+    ActrType,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,27 +25,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from generated import package_pb2, actr_pb2
 from generated import data_stream_peer_pb2 as pb2
 from generated import stream_client_actor as client_actor
+from actr import DataStream,Context
 
 
 class StreamClientService(client_actor.StreamClientHandler):
     """StreamClient service implementation (custom workload)"""
 
     def __init__(self) -> None:
-        self.server_type = actr_pb2.ActrType(
-            manufacturer="acme",
-            name="DataStreamPeerConcurrentServer",
+        self.target_actr_type = ActrType(
+            "acme",
+            "DataStreamPeerConcurrentServer",
         )
         logger.info("StreamClientService initialized")
 
     async def prepare_client_stream(
         self, req: pb2.PrepareClientStreamRequest, ctx
     ) -> pb2.PrepareStreamResponse:
-        if not isinstance(ctx, Context):
-            ctx = Context(ctx)
-
         logger.info(
             "prepare_client_stream: stream_id=%s, expected_count=%s",
             req.stream_id,
@@ -56,11 +52,11 @@ class StreamClientService(client_actor.StreamClientHandler):
         stream_id = req.stream_id
         expected_count = req.expected_count
 
-        async def stream_callback(data_stream: package_pb2.DataStream, sender_id) -> None:
-            text = data_stream.payload.decode("utf-8", errors="replace")
+        async def stream_callback(stream: DataStream, sender_id) -> None:
+            text = stream.payload().decode("utf-8", errors="replace")
             logger.info(
                 "client received %s/%s from %s: %s",
-                data_stream.sequence,
+                stream.sequence(),
                 expected_count,
                 sender_id,
                 text,
@@ -74,11 +70,8 @@ class StreamClientService(client_actor.StreamClientHandler):
         )
 
     async def start_stream(
-        self, req: pb2.StartStreamRequest, ctx
+        self, req: pb2.StartStreamRequest, ctx:Context
     ) -> pb2.StartStreamResponse:
-        if not isinstance(ctx, Context):
-            ctx = Context(ctx)
-
         logger.info(
             "start_stream: client_id=%s, stream_id=%s, message_count=%s",
             req.client_id,
@@ -86,9 +79,9 @@ class StreamClientService(client_actor.StreamClientHandler):
             req.message_count,
         )
 
-        logger.info("discovering server type: %s", self.server_type)
+        logger.info("discovering server type: %s", self.target_actr_type)
         try:
-            server_id = await ctx.discover(self.server_type)
+            server_id = await ctx.discover(self.target_actr_type)
             logger.info("discovered server: %s", server_id)
         except ActrRuntimeError as e:
             logger.error("Failed to discover server: %s", e)
@@ -129,16 +122,15 @@ class StreamClientService(client_actor.StreamClientHandler):
             )
             for i in range(1, req.message_count + 1):
                 message = f"[client {req.client_id}] message {i}"
-                data_stream_pb = package_pb2.DataStream(
+                data_stream = DataStream(
                     stream_id=req.stream_id,
                     sequence=i,
                     payload=message.encode("utf-8"),
                 )
-                data_stream_wrapper = DataStream(data_stream_pb)
                 target = Dest.actor(server_id)
 
                 try:
-                    await ctx.send_stream(target, data_stream_wrapper)
+                    await ctx.send_stream(target, data_stream)
                     logger.info("client sending %s/%s: %s", i, req.message_count, message)
                 except Exception as e:
                     logger.warning("client send_data_stream failed: %s", e)

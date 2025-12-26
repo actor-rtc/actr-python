@@ -7,10 +7,10 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
-use crate::conversions::{python_actr_type_to_rust, rust_actr_id_to_python};
 use crate::errors::map_protocol_error;
 use crate::types::{DataStreamPy, DestPy, PayloadType};
 use crate::workload::PyWorkloadWrapper;
+use crate::{ActrIdPy, ActrTypePy};
 
 type WrappedWorkload = PyWorkloadWrapper;
 type WrappedNode = ActrNode<WrappedWorkload>;
@@ -122,12 +122,12 @@ pub struct ActrRefPy {
 
 #[pymethods]
 impl ActrRefPy {
-    fn actor_id<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
+    fn actor_id(&self) -> PyResult<ActrIdPy> {
         let inner = self
             .inner
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("ActrRef has been consumed"))?;
-        rust_actr_id_to_python(py, inner.actor_id())
+        Ok(ActrIdPy::from_rust(inner.actor_id().clone()))
     }
 
     fn shutdown(&self) -> PyResult<()> {
@@ -227,13 +227,13 @@ pub struct ContextPy {
 
 #[pymethods]
 impl ContextPy {
-    fn self_id<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
-        rust_actr_id_to_python(py, self.inner.self_id())
+    fn self_id(&self) -> PyResult<ActrIdPy> {
+        Ok(ActrIdPy::from_rust(self.inner.self_id().clone()))
     }
 
-    fn caller_id<'py>(&self, py: Python<'py>) -> PyResult<Option<Py<PyAny>>> {
+    fn caller_id(&self) -> PyResult<Option<ActrIdPy>> {
         if let Some(id) = self.inner.caller_id() {
-            Ok(Some(rust_actr_id_to_python(py, id)?))
+            Ok(Some(ActrIdPy::from_rust(id.clone())))
         } else {
             Ok(None)
         }
@@ -246,17 +246,17 @@ impl ContextPy {
     fn discover_route_candidate<'py>(
         &self,
         py: Python<'py>,
-        actr_type: Py<PyAny>,
+        actr_type: ActrTypePy,
     ) -> PyResult<Bound<'py, PyAny>> {
         let ctx = self.inner.clone();
-        let target_type = python_actr_type_to_rust(py, actr_type)?;
+        let target_type = actr_type.inner().clone();
 
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let id = ctx
                 .discover_route_candidate(&target_type)
                 .await
                 .map_err(map_protocol_error)?;
-            Python::attach(|py| rust_actr_id_to_python(py, &id).map(Py::into_any))
+            Python::attach(|py| Ok(Py::new(py, ActrIdPy::from_rust(id))?.into_any()))
         })
     }
 
@@ -335,9 +335,9 @@ impl ContextPy {
                     );
 
                     let (py_ds, py_sender_id) = Python::attach(|py| -> PyResult<(Py<PyAny>, Py<PyAny>)> {
-                        let ds = crate::conversions::rust_datastream_to_python(py, &chunk)?;
+                        let ds: Py<PyAny> = Py::new(py, DataStreamPy::from_rust(chunk.clone()))?.into();
                         let sender_id_rust = sender_id.clone();
-                        let sid = crate::conversions::rust_actr_id_to_python(py, &sender_id_rust)?;
+                        let sid: Py<PyAny> = Py::new(py, ActrIdPy::from_rust(sender_id_rust))?.into();
                         Ok((ds, sid))
                     })
                     .map_err(|e| ProtocolError::TransportError(format!("Failed to convert to Python objects: {e}")))?;

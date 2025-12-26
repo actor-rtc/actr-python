@@ -1,12 +1,11 @@
 # Actr Python SDK (`actr` + `actr_raw`)
 
-Actr's Python SDK is a mixed Rust/Python package that ships a Pyo3-powered extension module (`actr_raw`) together with a Pythonic wrapper layer (`actr`). The Rust layer exposes the raw bindings, while the SDK layer provides decorators for defining services, a high-level `ActrSystem` API, and low-level bindings for advanced use cases.
+Actr's Python SDK is a mixed Rust/Python package that ships a Pyo3-powered extension module (`actr_raw`) together with a Pythonic wrapper layer (`actr`). The Rust layer exposes the raw bindings, while the `actr` layer wraps those bindings into a high-level `ActrSystem` API (plus other high-level helpers) for application use.
 
 ## Layout
 - `pyproject.toml` – Python packaging metadata for maturin/wheel builds
 - `Cargo.toml` / `src/` – Rust extension implemented with Pyo3 (exports `actr_raw`)
-- `python/` – Pure-Python helpers, decorators, and examples (packaged as `actr`)
-- `python/README.md` – Decorator-focused guide (kept with the Python sources)
+- `python/` – Pure-Python helpers and examples (packaged as `actr`)
 
 ## Quick start
 Requirements: Python 3.9+, Rust toolchain, `pip install maturin>=1.8`.
@@ -16,20 +15,30 @@ cd actr-python
 maturin develop --release  # build and install into the current virtualenv
 ```
 
-Then use the SDK:
+Then use the SDK (implement your own `Handler` + `WorkloadBase`):
 
 ```python
-from actr import ActrSystem, actr_decorator
+from actr import ActrSystem, WorkloadBase
 from generated import my_service_pb2
+from generated import my_service_actor
 
-@actr_decorator.service("my_service.EchoService")
-class MyService:
-    @actr_decorator.rpc
+class MyHandler(my_service_actor.MyServiceHandler):
     async def echo(self, req: my_service_pb2.EchoRequest, ctx):
         return my_service_pb2.EchoResponse(message=f"Echo: {req.message}")
 
+class MyWorkload(WorkloadBase):
+    def __init__(self, handler: MyHandler):
+        self.handler = handler
+        super().__init__(my_service_actor.MyServiceDispatcher())
+
+    async def on_start(self, ctx):
+        pass
+
+    async def on_stop(self, ctx):
+        pass
+
 system = await ActrSystem.from_toml("Actr.toml")
-node = system.attach(MyService.create_workload())
+node = system.attach(MyWorkload(MyHandler()))
 ref = await node.start()
 await ref.wait_for_ctrl_c_and_shutdown()
 ```
@@ -63,7 +72,7 @@ This section provides detailed information about the `actr` Python package archi
 actr/
 ├── __init__.py          # Root package entry, exports all public APIs
 ├── actr_raw/            # Rust binding layer (low-level API, imports actr_raw)
-└── decorators/          # Decorator implementation (@actr_decorator.service, @actr_decorator.rpc)
+└── workload.py          # WorkloadBase (developers implement their own Handler + Workload)
 ```
 
 ### Module Overview
@@ -78,8 +87,8 @@ actr/
 
 **Exports**:
 - `ActrSystem`, `ActrNode`, `ActrRef`, `Context`
-- `Dest`, `PayloadType`
-- `DataStream`
+- `ActrId`, `ActrType`, `Dest`, `PayloadType`
+- `DataStream` 
 - All exception types: `ActrRuntimeError`, `ActrTransportError`, etc.
 
 **Use Cases**:
@@ -92,58 +101,65 @@ actr/
 
 **Main Classes**:
 
-1. **`ActrSystem`**: High-level system wrapper
-   - `from_toml(path)` - Create system from TOML file
-   - `attach(workload)` - Attach Workload
+```text
+ActrSystem
+- from_toml(path: str) -> ActrSystem
+  # Build system from TOML config file.
+- attach(workload: WorkloadBase) -> ActrNode
+  # Attach a workload instance to the system.
 
-2. **`ActrNode`**: High-level node wrapper
-   - `start()` - Start node (directly raises exceptions)
+ActrNode
+- start() -> ActrRef
+  # Start the node and return a reference.
 
-3. **`ActrRef`**: High-level ref wrapper
-   - `call(route_key, request, ...)` - Call RPC (auto serialize)
-   - `tell(route_key, message, ...)` - Send message (auto serialize)
-   - `shutdown()`, `wait_for_shutdown()`, `wait_for_ctrl_c_and_shutdown()`
+ActrRef
+- call(route_key: str, request, timeout_ms: int = 30000, payload_type: PayloadType = None) -> bytes
+  # Call RPC and return response bytes.
+- tell(route_key: str, message, payload_type: PayloadType = None) -> None
+  # Fire-and-forget RPC.
+- shutdown() -> None
+  # Request actor shutdown.
+- wait_for_shutdown() -> None
+  # Await node shutdown.
+- wait_for_ctrl_c_and_shutdown() -> None
+  # Await Ctrl+C then shutdown.
 
-4. **`Context`**: High-level Context wrapper
-   - `call(target, route_key, request, ...)` - RPC call
-   - `tell(target, route_key, message, ...)` - Send message
-   - `discover(actr_type)` - Service discovery
-   - `register_stream()`, `unregister_stream()`, `send_stream()`
+Context
+- call(target: Dest, route_key: str, request, timeout_ms: int = 30000, payload_type: PayloadType = None) -> bytes
+  # Call RPC to target and return response bytes.
+- tell(target: Dest, route_key: str, message, payload_type: PayloadType = None) -> None
+  # Fire-and-forget RPC to target.
+- discover(actr_type: ActrType) -> ActrId
+  # Discover an actor by type.
+- register_stream(stream_id: str, callback) -> None
+  # Register stream callback: callback(data_stream: DataStream, sender_id: ActrId).
+- unregister_stream(stream_id: str) -> None
+  # Unregister stream callback.
+- send_stream(target: Dest, data_stream: DataStream, payload_type: PayloadType = None) -> None
+  # Send DataStream to target.
+```
+
+Handlers receive `Context` from the dispatcher; developers implement `Handler` + `WorkloadBase`.
+
+**DataStream constructor**:
+```python
+from actr import DataStream
+
+# From fields
+stream = DataStream(stream_id="stream-1", sequence=1, payload=b"hello")
+```
 
 **Features**:
-- **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes; RPC responses are returned as `bytes` and should be deserialized manually via `ResponseType.FromString(response_bytes)`
+- **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes
+- **Manual response decode**: RPC responses are returned as `bytes` and should be deserialized via `ResponseType.FromString(response_bytes)`
 - **Direct exception raising**: All methods directly raise exceptions, following Python conventions
 - **Manual destination wrapping**: Wrap actor id protobuf objects with `Dest.actor(actor_id)` before calling `Context.call()`/`Context.tell()`/`Context.send_stream()`
 - **Pythonic design**: Concise method names, reasonable parameters, following Python conventions
 
-#### `decorators/` - Decorator Implementation
-
-**Responsibility**: Provide decorator APIs to simplify service definitions.
-
-**Main Decorators**:
-
-1. **`@actr_decorator.service(service_name)`**
-   - Mark class as Actr service
-   - Automatically collect all `@actr_decorator.rpc` methods
-   - Automatically generate Dispatcher and Workload
-   - Add convenience method `create_workload()`
-
-2. **`@actr_decorator.rpc` or `@actr_decorator.rpc(route_key="...")`**
-   - Mark method as RPC handler function
-   - Automatically generate route_key (default: `{service_name}.{method_name}`)
-   - Support custom route_key
-
-**Features**:
-- Automatic Dispatcher generation (message routing)
-- Automatic Workload generation (lifecycle management)
-- Type inference (infer request/response types from type annotations)
-- Service registry (global service metadata management)
-
 **Exports from `__init__.py`**:
 - High-level APIs: `ActrSystem`, `ActrNode`, `ActrRef`, `Context`
-- Types: `Dest`, `PayloadType`, `DataStream`
+- Types: `ActrId`, `ActrType`, `Dest`, `PayloadType`, `DataStream`
 - Exceptions: `ActrRuntimeError`, `ActrTransportError`, etc.
-- Decorators: `actr_decorator`, `service`, `rpc`
 - Rust binding: `actr_raw` module (for advanced usage)
 
 ---
@@ -154,8 +170,6 @@ actr/
 
 ```
 ┌─────────────────────────────────────┐
-│  Decorator API (@actr_decorator.service, @actr_decorator.rpc) │  ← Simplest, recommended
-├─────────────────────────────────────┤
 │  High-level Pythonic API (ActrSystem, ActrRef, Context) │  ← Python-friendly, recommended
 ├─────────────────────────────────────┤
 │  Rust Binding (actr_raw/)            │  ← Low-level, direct Rust mapping
@@ -167,8 +181,8 @@ actr/
 - **Direct exception raising**: All high-level API methods directly raise exceptions, following Python conventions
   - Use standard `try/except` for error handling
   - Exception types: `ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.
-- **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes (RPC responses are returned as `bytes`)
-- **Type inference**: Automatically infer types from type annotations
+- **Auto serialization**: Accept protobuf request objects and automatically serialize to bytes
+- **Manual response decode**: RPC responses are returned as `bytes` and should be deserialized via `ResponseType.FromString(response_bytes)`
 - **Concise API**: Concise method names, reasonable parameters
 
 ### 3. Backward Compatibility
@@ -179,27 +193,7 @@ actr/
 
 ## API Layers
 
-### Layer 1: Decorator API (Most Recommended)
-
-**Features**: Simplest, automatically generates all code
-
-```python
-from actr import actr_decorator, ActrSystem
-
-@actr_decorator.service("my_service.EchoService")
-class MyService:
-    @actr_decorator.rpc
-    async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
-        return EchoResponse(message=req.message)
-
-# Usage
-system = await ActrSystem.from_toml("Actr.toml")
-workload = MyService.create_workload()
-node = system.attach(workload)
-ref = await node.start()
-```
-
-### Layer 2: High-level Pythonic API
+### Layer 1: High-level Pythonic API
 
 **Features**: Python-friendly, automatic serialization handling
 
@@ -221,7 +215,7 @@ except ActrRuntimeError as e:
     pass
 ```
 
-### Layer 3: Rust Binding (Advanced Users)
+### Layer 2: Rust Binding (Advanced Users)
 
 **Features**: Direct access to Rust APIs, maximum control
 
@@ -235,99 +229,27 @@ system = await ActrSystem.from_toml("Actr.toml")
 
 ---
 
-## Implementation Details
-
-### 1. Rust Binding Import Strategy
-
-`actr_raw/__init__.py` uses multiple strategies to import the Rust extension module:
-
-1. Check if module already exists in `sys.modules`
-2. Try `import actr_raw`
-3. If all fail, provide stub and warning
-
-### 2. High-level API Wrapping
-
-Classes in `__init__.py` wrap Rust objects:
-
-- Store Rust object references (`self._rust`)
-- Provide Pythonic methods
-- Automatically handle type conversion and serialization
-- Unified exception handling
-
-### 3. Decorator Implementation
-
-`decorators/__init__.py` implements the decorator system:
-
-- **Service registry**: Global `_service_registry` stores service metadata
-- **Method collection**: Use `inspect` to collect all `@actr_decorator.rpc` methods
-- **Type inference**: Use `get_type_hints` to infer request/response types
-- **Auto generation**: Dynamically generate Dispatcher and Workload classes
-
-### 4. Error Handling
-
-**High-level API (Recommended)**:
-- **Direct exception raising**: All methods directly raise exceptions
-- Use standard Python exception handling: `try/except`
-- Exception types: `ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.
-
-**Example**:
-```python
-from actr import ActrSystem, Context, Dest, ActrRuntimeError
-
-try:
-    response = await ctx.call(Dest.actor(server_id), "route.key", request)
-    # Directly use response, no need to check is_ok()
-except ActrRuntimeError as e:
-    # Handle error
-    log("error", f"RPC call failed: {e}")
-```
-
-**Rust Binding (Low-level)**:
-- **Direct exception raising**: All methods directly raise exceptions
-- Use standard Python exception handling: `try/except`
-- Exception types: `ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.
-
-**Decorators**:
-- Automatically handle exception propagation
-- Exceptions in handler methods automatically propagate to callers
-
----
-
 ## Usage Guide
 
 ### Quick Start (Recommended)
 
 ```python
-from actr import actr_decorator, ActrSystem
+from actr import ActrSystem, WorkloadBase, Context
+from generated import my_service_pb2, my_service_actor
 
-@actr_decorator.service("my_service.EchoService")
-class MyService:
-    @actr_decorator.rpc
-    async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
-        return EchoResponse(message=req.message)
+class MyHandler(my_service_actor.MyServiceHandler):
+    async def echo(self, req: my_service_pb2.EchoRequest, ctx: Context):
+        return my_service_pb2.EchoResponse(message=req.message)
 
-async def main():
-    system = await ActrSystem.from_toml("Actr.toml")
-    workload = MyService.create_workload()
-    node = system.attach(workload)
-    ref = await node.start()
-    await ref.wait_for_ctrl_c_and_shutdown()
-```
-
-### Using High-level API (Without Decorators)
-
-```python
-from actr import ActrSystem, ActrRef, Context
-
-class MyWorkload:
-    def __init__(self, handler):
+class MyWorkload(WorkloadBase):
+    def __init__(self, handler: MyHandler):
         self.handler = handler
-        self._dispatcher = MyDispatcher()
-    
-    def get_dispatcher(self):
-        return self._dispatcher
-    
+        super().__init__(my_service_actor.MyServiceDispatcher())
+
     async def on_start(self, ctx: Context):
+        pass
+
+    async def on_stop(self, ctx: Context):
         pass
 
 async def main():
@@ -361,24 +283,7 @@ async def main():
 
 ## Summary
 
-### Main Changes
-
-1. **Separated Rust Binding**: Created `actr_raw/` module, clearly distinguishing Rust binding and Python implementation
-2. **High-level API Wrapping**: Created high-level API in `__init__.py`, providing Pythonic high-level APIs
-3. **Decorator Support**: Implemented `@actr_decorator.service` and `@actr_decorator.rpc` decorators
-4. **Unified Exception Handling**: All API layers (Rust Binding and high-level API) directly raise exceptions
-   - Follows Python conventions: use `try/except` for error handling
-   - Type-safe: Exception types are clear (`ActrRuntimeError`, `ActrTransportError`, `ActrDecodeError`, etc.)
-   - Consistent: All API layers use the same error handling mechanism
-5. **Auto Serialization**: High-level API automatically serializes protobuf requests; RPC responses are returned as `bytes` and should be deserialized manually via `ResponseType.FromString(response_bytes)`
-
 ### Recommended Usage
 
-- **Daily Development**: Use decorator API (`@actr_decorator.service`, `@actr_decorator.rpc`)
-- **Need Control**: Use high-level API (`ActrSystem`, `ActrRef`, `Context`)
+- **Daily Development**: Use high-level API (`ActrSystem`, `ActrRef`, `Context`) with your own Handler + Workload
 - **Advanced Scenarios**: Use Rust Binding (`actr_raw` module)
-
-### Backward Compatibility
-
-- All Rust binding types can still be imported
-- Recommend using high-level API or decorators

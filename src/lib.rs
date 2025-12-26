@@ -2,7 +2,6 @@
 
 use pyo3::prelude::*;
 
-mod conversions;
 mod errors;
 mod observability;
 mod runtime;
@@ -14,7 +13,7 @@ pub use errors::{
 };
 use observability::ensure_observability_initialized;
 use runtime::{ActrNodePy, ActrRefPy, ActrSystemPy, ContextPy};
-pub use types::{ActorResultPy, DataStreamPy, DestPy, PayloadType};
+pub use types::{ActrIdPy, ActrTypePy, DataStreamPy, DestPy, PayloadType};
 
 #[pymodule]
 fn actr_raw(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -31,8 +30,9 @@ fn actr_raw(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     m.add_class::<PayloadType>()?;
     m.add_class::<DestPy>()?;
+    m.add_class::<ActrIdPy>()?;
+    m.add_class::<ActrTypePy>()?;
     m.add_class::<DataStreamPy>()?;
-    m.add_class::<ActorResultPy>()?;
     m.add_class::<ActrSystemPy>()?;
     m.add_class::<ActrNodePy>()?;
     m.add_class::<ActrRefPy>()?;

@@ -1,13 +1,8 @@
 use actr_framework::Dest;
-use actr_protocol::PayloadType as RpPayloadType;
 use actr_protocol::prost::Message as ProstMessage;
+use actr_protocol::{ActrId, ActrIdExt, ActrType, PayloadType as RpPayloadType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
-use crate::conversions::{
-    python_actr_id_to_rust, python_datastream_to_rust, rust_actr_id_to_python,
-    rust_datastream_to_python,
-};
 
 /// Python wrapper for Dest (destination identifier)
 #[pyclass(name = "Dest")]
@@ -29,10 +24,9 @@ impl DestPy {
     }
 
     #[staticmethod]
-    fn actor<'py>(py: Python<'py>, actr_id: Py<PyAny>) -> PyResult<Self> {
-        let rust_actr_id = python_actr_id_to_rust(py, actr_id)?;
+    fn actor(actr_id: ActrIdPy) -> PyResult<Self> {
         Ok(DestPy {
-            inner: Dest::Actor(rust_actr_id),
+            inner: Dest::Actor(actr_id.inner().clone()),
         })
     }
 
@@ -48,12 +42,8 @@ impl DestPy {
         self.inner.is_actor()
     }
 
-    fn as_actor_id<'py>(&self, py: Python<'py>) -> PyResult<Option<Py<PyAny>>> {
-        if let Some(id) = self.inner.as_actor_id() {
-            Ok(Some(rust_actr_id_to_python(py, id)?))
-        } else {
-            Ok(None)
-        }
+    fn as_actor_id(&self) -> Option<ActrIdPy> {
+        self.inner.as_actor_id().cloned().map(ActrIdPy::from_rust)
     }
 }
 
@@ -67,6 +57,95 @@ impl DestPy {
     }
 }
 
+/// Python wrapper for ActrId
+#[pyclass(name = "ActrId")]
+#[derive(Clone)]
+pub struct ActrIdPy {
+    inner: ActrId,
+}
+
+#[pymethods]
+impl ActrIdPy {
+    #[staticmethod]
+    fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        let inner = ActrId::decode(bytes)
+            .map_err(|e| PyValueError::new_err(format!("Failed to decode ActrId: {e}")))?;
+        Ok(ActrIdPy { inner })
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.inner.encode_to_vec()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{}", self.inner.to_string_repr())
+    }
+}
+
+impl ActrIdPy {
+    pub fn inner(&self) -> &ActrId {
+        &self.inner
+    }
+
+    pub fn from_rust(id: ActrId) -> Self {
+        ActrIdPy { inner: id }
+    }
+}
+
+/// Python wrapper for ActrType
+#[pyclass(name = "ActrType")]
+#[derive(Clone)]
+pub struct ActrTypePy {
+    inner: ActrType,
+}
+
+#[pymethods]
+impl ActrTypePy {
+    #[new]
+    #[pyo3(signature = (manufacturer, name))]
+    fn new(manufacturer: String, name: String) -> PyResult<Self> {
+        Ok(ActrTypePy {
+            inner: ActrType { manufacturer, name },
+        })
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.inner.encode_to_vec()
+    }
+
+    #[staticmethod]
+    fn from_bytes(bytes: Vec<u8>) -> PyResult<Self> {
+        let inner = ActrType::decode(&bytes[..])
+            .map_err(|e| PyValueError::new_err(format!("Failed to decode ActrType: {e}")))?;
+        Ok(ActrTypePy { inner })
+    }
+
+    fn manufacturer(&self) -> String {
+        self.inner.manufacturer.clone()
+    }
+
+    fn name(&self) -> String {
+        self.inner.name.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ActrType(manufacturer={}, name={})",
+            self.inner.manufacturer, self.inner.name
+        )
+    }
+}
+
+impl ActrTypePy {
+    pub fn inner(&self) -> &ActrType {
+        &self.inner
+    }
+
+    pub fn from_rust(actr_type: ActrType) -> Self {
+        ActrTypePy { inner: actr_type }
+    }
+}
+
 /// Python wrapper for DataStream protobuf message
 #[pyclass(name = "DataStream")]
 #[derive(Clone)]
@@ -77,10 +156,21 @@ pub struct DataStreamPy {
 #[pymethods]
 impl DataStreamPy {
     #[new]
-    fn new(py_ds: Py<PyAny>) -> PyResult<Self> {
-        Python::attach(|py| -> PyResult<Self> {
-            let inner = python_datastream_to_rust(py, py_ds)?;
-            Ok(DataStreamPy { inner })
+    #[pyo3(signature = (stream_id, sequence, payload, timestamp_ms=None))]
+    fn new(
+        stream_id: String,
+        sequence: u64,
+        payload: Vec<u8>,
+        timestamp_ms: Option<i64>,
+    ) -> PyResult<Self> {
+        Ok(DataStreamPy {
+            inner: actr_protocol::DataStream {
+                stream_id,
+                sequence,
+                payload: payload.into(),
+                timestamp_ms,
+                metadata: vec![],
+            },
         })
     }
 
@@ -89,10 +179,6 @@ impl DataStreamPy {
         let inner = actr_protocol::DataStream::decode(bytes)
             .map_err(|e| PyValueError::new_err(format!("Failed to decode DataStream: {e}")))?;
         Ok(DataStreamPy { inner })
-    }
-
-    fn to_protobuf<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
-        rust_datastream_to_python(py, &self.inner)
     }
 
     fn to_bytes(&self) -> Vec<u8> {
@@ -144,13 +230,4 @@ impl PayloadType {
             PayloadType::StreamLatencyFirst => RpPayloadType::StreamLatencyFirst,
         }
     }
-}
-
-/// Python wrapper for ActorResult
-#[pyclass(name = "ActorResult")]
-pub struct ActorResultPy {
-    #[pyo3(get)]
-    pub ok: bool,
-    pub value: Option<Py<PyAny>>,
-    pub error: Option<Py<PyAny>>,
 }
