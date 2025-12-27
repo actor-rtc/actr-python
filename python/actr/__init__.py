@@ -4,20 +4,22 @@ Actr Python SDK
 This module provides Python bindings for actr-runtime, including:
 - High-level Pythonic API: Python-friendly wrappers (root package)
 - Rust Binding: Direct Rust bindings (in .actr_raw submodule, imports from actr_raw)
-- Decorators: @actr_decorator.service and @actr_decorator.rpc (in .decorators submodule)
 
 Recommended usage:
-    from actr import actr_decorator, ActrSystem
-    
-    @actr_decorator.service("my_service.EchoService")
-    class MyService:
-        @actr_decorator.rpc
-        async def echo(self, req: EchoRequest, ctx) -> EchoResponse:
-            return EchoResponse(message=req.message)
-    
+    from actr import ActrSystem, WorkloadBase
+    from generated import my_service_pb2, my_service_actor
+
+    class MyHandler(my_service_actor.MyServiceHandler):
+        async def echo(self, req: my_service_pb2.EchoRequest, ctx):
+            return my_service_pb2.EchoResponse(message=req.message)
+
+    class MyWorkload(WorkloadBase):
+        def __init__(self, handler: MyHandler):
+            self.handler = handler
+            super().__init__(my_service_actor.MyServiceDispatcher())
+
     system = await ActrSystem.from_toml("Actr.toml")
-    workload = MyService.create_workload()
-    node = system.attach(workload)
+    node = system.attach(MyWorkload(MyHandler()))
     ref = await node.start()
 """
 
@@ -78,7 +80,7 @@ class ActrSystem:
         rust_system = await RustActrSystem.from_toml(path)
         return ActrSystem(rust_system)
     
-    def attach(self, workload:Workload):
+    def attach(self, workload):
         """
         Attach workload to system
         

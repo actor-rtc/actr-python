@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 from generated import data_stream_peer_pb2 as pb2
 from generated import stream_server_actor as server_actor
-from actr import DataStream as StreamData
+from actr import DataStream as StreamData, Context 
 
 
 class StreamServerService(server_actor.StreamServerHandler):
@@ -31,7 +31,7 @@ class StreamServerService(server_actor.StreamServerHandler):
         logger.info("StreamServerService initialized")
 
     async def prepare_stream(
-        self, req: pb2.PrepareServerStreamRequest, ctx
+        self, req: pb2.PrepareServerStreamRequest, ctx:Context
     ) -> pb2.PrepareStreamResponse:
         caller = ctx.caller_id()
         if caller is None:
@@ -121,10 +121,10 @@ class StreamServerWorkload(WorkloadBase):
         self.handler = handler
         super().__init__(server_actor.StreamServerDispatcher())
 
-    async def on_start(self, ctx) -> None:
+    async def on_start(self, ctx:Context) -> None:
         logger.info("StreamServerWorkload on_start")
 
-    async def on_stop(self, ctx) -> None:
+    async def on_stop(self, ctx:Context) -> None:
         logger.info("StreamServerWorkload on_stop")
 
 

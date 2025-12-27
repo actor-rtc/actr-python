@@ -174,6 +174,14 @@ impl Workload for PyWorkloadWrapper {
             ProtocolError::TransportError(format!("Failed to create ContextPy: {e}"))
         })?;
 
+        let ctx_obj = Python::attach(|py| -> PyResult<Py<PyAny>> {
+            let actr_module = py.import("actr")?;
+            let ctx_class = actr_module.getattr("Context")?;
+            let ctx_obj = ctx_class.call1((ctx_py.clone_ref(py),))?;
+            Ok(ctx_obj.extract::<Py<PyAny>>()?)
+        })
+        .map_err(|e| ProtocolError::TransportError(format!("Failed to wrap Context: {e}")))?;
+
         let maybe = Python::attach(|py| {
             let obj = self.py_obj.bind(py);
             Ok(obj.hasattr("on_start")?)
@@ -186,7 +194,7 @@ impl Workload for PyWorkloadWrapper {
 
         let fut = Python::attach(|py| -> PyResult<_> {
             let obj = self.py_obj.bind(py);
-            let ctx_obj = ctx_py.clone_ref(py);
+            let ctx_obj = ctx_obj.clone_ref(py);
             let coro = obj.call_method1("on_start", (ctx_obj,))?;
             pyo3_async_runtimes::tokio::into_future(coro)
         })
@@ -208,6 +216,14 @@ impl Workload for PyWorkloadWrapper {
             ProtocolError::TransportError(format!("Failed to create ContextPy: {e}"))
         })?;
 
+        let ctx_obj = Python::attach(|py| -> PyResult<Py<PyAny>> {
+            let actr_module = py.import("actr")?;
+            let ctx_class = actr_module.getattr("Context")?;
+            let ctx_obj = ctx_class.call1((ctx_py.clone_ref(py),))?;
+            Ok(ctx_obj.extract::<Py<PyAny>>()?)
+        })
+        .map_err(|e| ProtocolError::TransportError(format!("Failed to wrap Context: {e}")))?;
+
         let maybe = Python::attach(|py| {
             let obj = self.py_obj.bind(py);
             Ok(obj.hasattr("on_stop")?)
@@ -220,7 +236,7 @@ impl Workload for PyWorkloadWrapper {
 
         let fut = Python::attach(|py| -> PyResult<_> {
             let obj = self.py_obj.bind(py);
-            let ctx_obj = ctx_py.clone_ref(py);
+            let ctx_obj = ctx_obj.clone_ref(py);
             let coro = obj.call_method1("on_stop", (ctx_obj,))?;
             pyo3_async_runtimes::tokio::into_future(coro)
         })

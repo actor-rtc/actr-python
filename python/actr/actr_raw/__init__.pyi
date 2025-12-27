@@ -97,24 +97,29 @@ class Dest:
 
 # DataStream class for streaming data
 class DataStream:
-    """Wrapper for DataStream protobuf message."""
+    """Wrapper for DataStream."""
     
-    def __init__(self, py_ds: Any) -> None:
+    def __init__(
+        self,
+        stream_id: str,
+        sequence: int,
+        payload: bytes,
+        timestamp_ms: Optional[int] = ...,
+    ) -> None:
         """
-        Create a DataStream from a protobuf DataStream message.
+        Create a DataStream from fields.
         
         Args:
-            py_ds: A protobuf DataStream message object
+            stream_id: Stream identifier
+            sequence: Sequence number
+            payload: Payload bytes
+            timestamp_ms: Optional timestamp in milliseconds
         """
         ...
     
     @staticmethod
     def from_bytes(bytes: bytes) -> "DataStream":
         """Create a DataStream from serialized bytes."""
-        ...
-    
-    def to_protobuf(self) -> Any:
-        """Convert to protobuf DataStream message."""
         ...
     
     def to_bytes(self) -> bytes:

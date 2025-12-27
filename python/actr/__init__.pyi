@@ -92,6 +92,18 @@ class Context:
         payload_type: Optional[RustPayloadType] = ...,
     ) -> None: ...
 
+
+def service(service_name: str) -> Callable[[Type[T]], Type[T]]: ...
+
+def rpc(route_key: Optional[str] = ...) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
+
+
+class ActrDecorators:
+    @staticmethod
+    def service(service_name: str) -> Callable[[Type[T]], Type[T]]: ...
+    @staticmethod
+    def rpc(route_key: Optional[str] = ...) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
+
 Dest = RustDest
 PayloadType = RustPayloadType
 DataStream = RustDataStream
@@ -100,6 +112,9 @@ ActrType = RustActrType
 
 from . import actr_raw
 from .workload import WorkloadBase
+from .decorators import service, rpc, ActrDecorators
+
+actr_decorator: ActrDecorators
 
 __all__ = [
     "ActrSystem",
@@ -116,6 +131,10 @@ __all__ = [
     "ActrDecodeError",
     "ActrUnknownRoute",
     "ActrGateNotInitialized",
+    "service",
+    "rpc",
+    "ActrDecorators",
+    "actr_decorator",
     "actr_raw",
     "WorkloadBase",
 ]
