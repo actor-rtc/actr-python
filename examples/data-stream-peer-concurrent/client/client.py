@@ -38,6 +38,8 @@ class StreamClientService(client_actor.StreamClientHandler):
             "acme",
             "DataStreamPeerConcurrentServer",
         )
+        # Per-stream task spawner: 每个 stream_id 一个 Queue，保证同一 stream 串行，不同 stream 并发
+        self.stream_queues: dict[str, asyncio.Queue] = {}
         logger.info("StreamClientService initialized")
 
     async def prepare_client_stream(
@@ -52,15 +54,43 @@ class StreamClientService(client_actor.StreamClientHandler):
         stream_id = req.stream_id
         expected_count = req.expected_count
 
+        # 为这个 stream_id 创建 Queue 和专属处理任务（如果还没有）
+        if stream_id not in self.stream_queues:
+            queue = asyncio.Queue()
+            self.stream_queues[stream_id] = queue
+
+            # 启动专属任务来串行处理这个 stream 的消息
+            async def stream_task():
+                logger.info("🚀 Started dedicated task for stream: %s", stream_id)
+                
+                while True:
+                    try:
+                        stream, sender_id = await queue.get()
+                        text = stream.payload().decode("utf-8", errors="replace")
+                        logger.info(
+                            "client received %s/%s from %s (stream=%s): %s",
+                            stream.sequence(),
+                            expected_count,
+                            sender_id,
+                            stream_id,
+                            text,
+                        )
+                        queue.task_done()
+                    except asyncio.CancelledError:
+                        logger.info("🛑 Stream task cancelled: %s", stream_id)
+                        break
+                    except Exception as e:
+                        logger.error("Error processing stream %s: %s", stream_id, e)
+
+            asyncio.create_task(stream_task())
+
+        # 注册 stream callback：快速返回，消息发送到 Queue
         async def stream_callback(stream: DataStream, sender_id) -> None:
-            text = stream.payload().decode("utf-8", errors="replace")
-            logger.info(
-                "client received %s/%s from %s: %s",
-                stream.sequence(),
-                expected_count,
-                sender_id,
-                text,
-            )
+            # 发送到该 stream 的专属 Queue（非阻塞）
+            if stream_id in self.stream_queues:
+                await self.stream_queues[stream_id].put((stream, sender_id))
+            else:
+                logger.warning("No queue found for stream: %s", stream_id)
 
         await ctx.register_stream(stream_id, stream_callback)
 
