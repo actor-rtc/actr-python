@@ -100,11 +100,13 @@ class StreamServerService(server_actor.StreamServerHandler):
         )
 
         try:
+            logger.info("call PrepareClientStream222: %s %s", prepare_client_req,caller)
             response_bytes = await ctx.call(
                 Dest.actor(caller),
                 "data_stream_peer.StreamClient.PrepareClientStream",
                 prepare_client_req,
             )
+            logger.info("call PrepareClientStream111 response: %s", response_bytes)
             prepare_client_resp = pb2.PrepareStreamResponse.FromString(response_bytes)
 
             if not prepare_client_resp.ready:
@@ -121,7 +123,8 @@ class StreamServerService(server_actor.StreamServerHandler):
 
         async def _send_stream_messages() -> None:
             logger.info("sending data stream back to client: %s", caller)
-            for i in range(1, expected_count + 1):
+            i = 1
+            while i <= expected_count:
                 message = f"[server] message {i}"
                 data_stream = StreamData(
                     stream_id=stream_id,
@@ -133,11 +136,14 @@ class StreamServerService(server_actor.StreamServerHandler):
                 try:
                     await ctx.send_stream(target, data_stream)
                     logger.info("server sending %s/%s: %s", i, expected_count, message)
+                    i += 1  # Only increment on success
                 except Exception as e:
-                    logger.warning("server send_data_stream failed: %s", e)
-                    break
+                    logger.warning("server send_data_stream failed (will retry): %s", e)
+                    # Don't break, wait and retry
+                    await asyncio.sleep(2.0)  # Wait longer before retry
+                    continue
 
-                if i < expected_count:
+                if i <= expected_count:
                     await asyncio.sleep(1.0)
 
         asyncio.create_task(_send_stream_messages())

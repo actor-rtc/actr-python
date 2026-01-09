@@ -10,7 +10,7 @@ tags = ["dev", "example", "python"]
 
 [package.actr_type]
 manufacturer = "acme"
-name = "DataStreamPeerConcurrentServer"
+name = "DataStreamConcurrentServer"
 
 [system.signaling]
 url = "ws://localhost:8081/signaling/ws"
@@ -21,7 +21,7 @@ turn_urls = ["turn:localhost:13478"]
 force_relay = false
 
 [system.deployment]
-realm = 0
+realm_id = 0
 
 [system.discovery]
 visible = true
@@ -30,7 +30,7 @@ visible = true
 
 [[acl.rules]]
 permission = "allow"
-types = ["acme:DataStreamPeerConcurrentClient"]
+types = ["acme+DataStreamConcurrentClient"]
 
 [scripts]
 dev = "python server.py --actr-toml Actr.toml"

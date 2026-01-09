@@ -36,7 +36,7 @@ class StreamClientService(client_actor.StreamClientHandler):
     def __init__(self) -> None:
         self.target_actr_type = ActrType(
             "acme",
-            "DataStreamPeerConcurrentServer",
+            "DataStreamConcurrentServer",
         )
         # Per-stream task spawner: 每个 stream_id 一个 Queue，保证同一 stream 串行，不同 stream 并发
         self.stream_queues: dict[str, asyncio.Queue] = {}
@@ -150,7 +150,8 @@ class StreamClientService(client_actor.StreamClientHandler):
                 "Starting to send %s DataStream messages to server",
                 req.message_count,
             )
-            for i in range(1, req.message_count + 1):
+            i = 1
+            while i <= req.message_count:
                 message = f"[client {req.client_id}] message {i}"
                 data_stream = DataStream(
                     stream_id=req.stream_id,
@@ -162,11 +163,14 @@ class StreamClientService(client_actor.StreamClientHandler):
                 try:
                     await ctx.send_stream(target, data_stream)
                     logger.info("client sending %s/%s: %s", i, req.message_count, message)
+                    i += 1  # Only increment on success
                 except Exception as e:
-                    logger.warning("client send_data_stream failed: %s", e)
-                    break
+                    logger.warning("client send_data_stream failed (will retry): %s", e)
+                    # Don't break, wait and retry
+                    await asyncio.sleep(2.0)  # Wait longer before retry
+                    continue
 
-                if i < req.message_count:
+                if i <= req.message_count:
                     await asyncio.sleep(1.0)
 
         asyncio.create_task(_send_stream_messages())
