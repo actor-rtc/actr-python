@@ -1,6 +1,6 @@
 [package]
 name = "actr-python"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
@@ -17,10 +17,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # TODO: Use Version instead of git
-actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "76bf743f0bf95e0374e5cb1bbc0a8d64cfd5462e" }
-actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "76bf743f0bf95e0374e5cb1bbc0a8d64cfd5462e" }
-actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "76bf743f0bf95e0374e5cb1bbc0a8d64cfd5462e" }
-actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "76bf743f0bf95e0374e5cb1bbc0a8d64cfd5462e" }
+actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
+actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
+actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
+actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
 tokio = { version = "1.48", features = ["full"] }
 bytes = "1.10"
 prost = "0.14"

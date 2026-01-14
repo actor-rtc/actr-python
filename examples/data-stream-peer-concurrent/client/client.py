@@ -15,19 +15,19 @@ from actr import (
     ActrType,
 )
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "generated"))
-sys.path.insert(0, str(ROOT))
-
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-from generated import data_stream_peer_pb2 as pb2
+from generated import data_stream_peer_client_pb2 as pb2
+
+from generated.remote.data_stream_peer_concurrent_server_python import stream_server_client  # Register RPC extensions
+from generated.remote.data_stream_peer_concurrent_server_python import data_stream_peer_server_pb2 as server_pb2
+
 from generated import stream_client_actor as client_actor
-from actr import DataStream,Context
+from actr import DataStream, Context
 
 
 class StreamClientService(client_actor.StreamClientHandler):
@@ -120,7 +120,7 @@ class StreamClientService(client_actor.StreamClientHandler):
                 message=f"Failed to discover server: {e}",
             )
 
-        prepare_req = pb2.PrepareServerStreamRequest(
+        prepare_req = server_pb2.PrepareServerStreamRequest(
             stream_id=req.stream_id,
             expected_count=req.message_count,
         )
@@ -128,10 +128,10 @@ class StreamClientService(client_actor.StreamClientHandler):
         try:
             response_bytes = await ctx.call(
                 Dest.actor(server_id),
-                "data_stream_peer.StreamServer.PrepareStream",
+                prepare_req.route_key,
                 prepare_req,
             )
-            prepare_resp = pb2.PrepareStreamResponse.FromString(response_bytes)
+            prepare_resp = server_pb2.PrepareServerStreamResponse.FromString(response_bytes)
 
             if not prepare_resp.ready:
                 return pb2.StartStreamResponse(
@@ -221,7 +221,7 @@ async def main() -> int:
     )
 
     response_bytes = await ref.call(
-        "data_stream_peer.StreamClient.StartStream",
+        start_req.route_key,
         start_req,
     )
     response = pb2.StartStreamResponse.FromString(response_bytes)

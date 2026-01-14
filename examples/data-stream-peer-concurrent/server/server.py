@@ -8,17 +8,15 @@ from pathlib import Path
 
 from actr import ActrSystem, Dest, WorkloadBase
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "generated"))
-sys.path.insert(0, str(ROOT))
-
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-from generated import data_stream_peer_pb2 as pb2
+from generated import data_stream_peer_server_pb2 as pb2
+from generated.remote.data_stream_peer_concurrent_client_python import stream_client_client  # Register RPC extensions
+from generated.remote.data_stream_peer_concurrent_client_python import data_stream_peer_client_pb2 as client_pb2
 from generated import stream_server_actor as server_actor
 from actr import DataStream as StreamData, Context 
 
@@ -94,29 +92,27 @@ class StreamServerService(server_actor.StreamServerHandler):
 
         await ctx.register_stream(stream_id, stream_callback)
 
-        prepare_client_req = pb2.PrepareClientStreamRequest(
+        prepare_client_req = client_pb2.PrepareClientStreamRequest(
             stream_id=stream_id,
             expected_count=expected_count,
         )
 
         try:
-            logger.info("call PrepareClientStream222: %s %s", prepare_client_req,caller)
             response_bytes = await ctx.call(
                 Dest.actor(caller),
-                "data_stream_peer.StreamClient.PrepareClientStream",
+                prepare_client_req.route_key,
                 prepare_client_req,
             )
-            logger.info("call PrepareClientStream111 response: %s", response_bytes)
-            prepare_client_resp = pb2.PrepareStreamResponse.FromString(response_bytes)
+            prepare_client_resp = client_pb2.PrepareStreamResponse.FromString(response_bytes)
 
             if not prepare_client_resp.ready:
-                return pb2.PrepareStreamResponse(
+                return pb2.PrepareServerStreamResponse(
                     ready=False,
                     message=prepare_client_resp.message,
                 )
         except Exception as e:
             logger.error("Failed to call PrepareClientStream: %s", e)
-            return pb2.PrepareStreamResponse(
+            return pb2.PrepareServerStreamResponse(
                 ready=False,
                 message=f"Failed to prepare client stream: {e}",
             )
@@ -148,7 +144,7 @@ class StreamServerService(server_actor.StreamServerHandler):
 
         asyncio.create_task(_send_stream_messages())
 
-        return pb2.PrepareStreamResponse(
+        return pb2.PrepareServerStreamResponse(
             ready=True,
             message=f"registered stream {stream_id} for {expected_count} messages",
         )

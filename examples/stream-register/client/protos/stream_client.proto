@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package stream_client;
+
+message StartStreamRequest {
+  string stream_id = 1;
+}
+
+message StartStreamResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+service StreamClient {
+  rpc StartStream(StartStreamRequest) returns (StartStreamResponse);
+}
+
