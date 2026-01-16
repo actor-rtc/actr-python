@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from generated import stream_server_pb2 as pb2
+from generated.local import stream_server_pb2 as pb2
 from generated import stream_server_actor as server_actor
 
 

@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from generated import stream_client_pb2 as pb2
+from generated.local import stream_client_pb2 as pb2
 from generated import local_stream_service_actor as local_service_actor
 from generated.remote.stream_register_server_python import stream_server_client  # Register RPC extensions
 from generated.remote.stream_register_server_python import stream_server_pb2 as server_pb2

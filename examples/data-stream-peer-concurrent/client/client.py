@@ -21,11 +21,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from generated import data_stream_peer_client_pb2 as pb2
-
+from generated.local import data_stream_peer_client_pb2 as pb2
 from generated.remote.data_stream_peer_concurrent_server_python import stream_server_client  # Register RPC extensions
 from generated.remote.data_stream_peer_concurrent_server_python import data_stream_peer_server_pb2 as server_pb2
-
 from generated import stream_client_actor as client_actor
 from actr import DataStream, Context
 
