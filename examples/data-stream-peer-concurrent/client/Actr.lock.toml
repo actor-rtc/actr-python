@@ -1,0 +1,6 @@
+[metadata]
+version = 1
+generated_at = "2026-01-26T07:31:29.555205+00:00"
+
+[dependencies]
+data-stream-peer-concurrent-server-python = { path = "../pro" }

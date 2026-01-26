@@ -11,15 +11,12 @@ mod workload;
 pub use errors::{
     ActrDecodeError, ActrGateNotInitialized, ActrRuntimeError, ActrTransportError, ActrUnknownRoute,
 };
-use observability::ensure_observability_initialized;
+
 use runtime::{ActrNodePy, ActrRefPy, ActrSystemPy, ContextPy};
 pub use types::{ActrIdPy, ActrTypePy, DataStreamPy, DestPy, PayloadType};
 
 #[pymodule]
 fn actr_raw(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    // fixme remove this once observability is properly configured
-    ensure_observability_initialized();
-
     m.add("ActrRuntimeError", _py.get_type::<ActrRuntimeError>())?;
     m.add("ActrTransportError", _py.get_type::<ActrTransportError>())?;
     m.add("ActrDecodeError", _py.get_type::<ActrDecodeError>())?;

@@ -21,6 +21,8 @@ actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887
 actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
 actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
 actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
+
+
 tokio = { version = "1.48", features = ["full"] }
 bytes = "1.10"
 prost = "0.14"

@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
 use crate::errors::map_protocol_error;
+use crate::observability::ensure_observability_initialized;
 use crate::types::{DataStreamPy, DestPy, PayloadType};
 use crate::workload::PyWorkloadWrapper;
 use crate::{ActrIdPy, ActrTypePy};
@@ -29,6 +30,7 @@ impl ActrSystemPy {
             eprintln!("[py] Loading config from: {}", path);
             let config =
                 ConfigParser::from_file(&path).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            ensure_observability_initialized(Some(config.observability.clone()));
             eprintln!("[py] Config loaded, creating ActrSystem...");
             let system = ActrSystem::new(config).await.map_err(map_protocol_error)?;
             eprintln!("[py] ActrSystem created successfully");
