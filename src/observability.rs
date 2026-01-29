@@ -17,7 +17,7 @@ pub fn ensure_observability_initialized(config: Option<ObservabilityConfig>) {
                 tracing_service_name: "actr-runtime-py".to_string(),
             }
         });
-        
+
         init_observability(&config).unwrap_or_else(|e| {
             eprintln!("[warn] Failed to initialize observability: {}", e);
             actr_runtime::ObservabilityGuard::default()

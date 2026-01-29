@@ -17,10 +17,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # TODO: Use Version instead of git
-actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
-actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
-actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
-actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "79bc38887c2afb8a629c3e52cf5474db4c2d6baa" }
+actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
+actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
+actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
+actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
 
 
 tokio = { version = "1.48", features = ["full"] }
