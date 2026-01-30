@@ -25,7 +25,7 @@ if str(generated_dir) not in sys.path:
 
 # 动态导入生成的模块
 from generated.local import data_stream_peer_server_pb2 as pb2
-from generated import stream_server_actor as actor
+from generated import data_stream_peer_server_service_actor as actor
 
 
 class StreamServerHandler(actor.StreamServerHandler):
