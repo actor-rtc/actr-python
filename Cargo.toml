@@ -8,28 +8,27 @@ repository = "https://github.com/actor-rtc/actr-python"
 authors = ["Actor-RTC Contributors"]
 description = "Python bindings for actr (actr_python)"
 readme = "README.md"
-keywords = ["actor", "python", "webrtc", "distributed", "realtime", "p2p"]
-categories = ["network-programming", "asynchronous", "web-programming"]
+keywords = ["actor", "distributed", "p2p", "python", "realtime", "webrtc"]
+categories = ["asynchronous", "network-programming", "web-programming"]
 
 [lib]
-name = "actr_python"
 crate-type = ["cdylib"]
+name = "actr_python"
 
 [dependencies]
+actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "04da2c4cacbfca234502afea03a61ab6f04bab61" }
+actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "04da2c4cacbfca234502afea03a61ab6f04bab61" }
+actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "04da2c4cacbfca234502afea03a61ab6f04bab61" }
 # TODO: Use Version instead of git
-actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
-actr-config = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
-actr-framework = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
-actr-protocol = { git = "https://github.com/actor-rtc/actr.git", rev = "0a3151c8bf95f95dd1751b3d874f648cafaf744d" }
-
-
-tokio = { version = "1.48", features = ["full"] }
-bytes = "1.10"
-prost = "0.14"
-async-trait = "0.1"
-tracing = "0.1"
+actr-runtime = { git = "https://github.com/actor-rtc/actr.git", rev = "04da2c4cacbfca234502afea03a61ab6f04bab61" }
 anyhow = "1.0"
+async-trait = "0.1"
+bytes = "1.10"
+# Force vendored OpenSSL for all platforms to avoid system dependency issues
+openssl = { version = "0.10", features = ["vendored"] }
+prost = "0.14"
 prost-types = "0.14"
-
-pyo3 = { version = "0.27", features = ["extension-module", "abi3-py312"] }
+pyo3 = { version = "0.27", features = ["abi3-py312", "extension-module"] }
 pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }
+tokio = { version = "1.48", features = ["full"] }
+tracing = "0.1"
