@@ -10,5 +10,9 @@ __pycache__/
 .agent/
 Cargo.lock
 **/Actr.toml
+*.pem
+*.key
+.env*
+!.env.example
 **/generated/
 docs/

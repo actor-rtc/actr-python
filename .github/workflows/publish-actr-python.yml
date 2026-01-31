@@ -128,6 +128,7 @@ jobs:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
 
       - name: Publish to PyPI
         if: github.ref_type == 'tag' && !contains(github.ref_name, 'beta')
