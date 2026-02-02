@@ -3,6 +3,7 @@ use actr_protocol::prost::Message as ProstMessage;
 use actr_protocol::{ActrId, ActrIdExt, ActrType, PayloadType as RpPayloadType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use std::collections::HashMap;
 
 /// Python wrapper for Dest (destination identifier)
 #[pyclass(name = "Dest")]
@@ -156,20 +157,26 @@ pub struct DataStreamPy {
 #[pymethods]
 impl DataStreamPy {
     #[new]
-    #[pyo3(signature = (stream_id, sequence, payload, timestamp_ms=None))]
+    #[pyo3(signature = (stream_id, sequence, payload, timestamp_ms=None, metadata=None))]
     fn new(
         stream_id: String,
         sequence: u64,
         payload: Vec<u8>,
         timestamp_ms: Option<i64>,
+        metadata: Option<HashMap<String, String>>,
     ) -> PyResult<Self> {
+        let metadata = metadata
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(key, value)| actr_protocol::MetadataEntry { key, value })
+            .collect();
         Ok(DataStreamPy {
             inner: actr_protocol::DataStream {
                 stream_id,
                 sequence,
                 payload: payload.into(),
                 timestamp_ms,
-                metadata: vec![],
+                metadata,
             },
         })
     }
@@ -199,6 +206,14 @@ impl DataStreamPy {
 
     fn timestamp_ms(&self) -> Option<i64> {
         self.inner.timestamp_ms
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        self.inner
+            .metadata
+            .iter()
+            .map(|entry| (entry.key.clone(), entry.value.clone()))
+            .collect()
     }
 }
 
