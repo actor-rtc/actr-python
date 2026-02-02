@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package stream_server;
+
+message UnregisterRequest {
+  string stream_id = 1;
+}
+
+message UnregisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 问题和答案消息定义
+message UsrPromptRequest {
+  string question_id = 1; // Unique question identifier
+  string session_id = 2; // Session ID for tracking
+  string text = 3; // Text question (if applicable)
+  string voice_stream_id = 4; // Voice question stream ID (if applicable)
+  Location location = 5; // Optional location context
+  repeated string attachment_ids = 6; // Optional: Attachment IDs
+}
+
+message AssistantReply {
+  string question_id = 1; // ID for the answer stream
+  string session_id = 2; // Session ID for tracking
+  string text = 3; // Text answer (if applicable)
+  string stream_id = 4; // Stream ID for the answer
+  int32 status_code = 5;
+  string error_message = 6;
+}
+
+// 预定义的附件类型
+enum AttachmentType {
+  ATTACHMENT_TYPE_UNKNOWN = 0;
+  IMAGE = 1;
+  DOCUMENT = 2;
+  AUDIO = 3;
+  VIDEO = 4;
+  OTHER = 99;
+}
+
+// 附件上传请求
+message AttachRequest {
+  string id = 1; // 附件唯一标识
+  string filename = 2; // 原始文件名
+  AttachmentType type = 3; // 附件类型
+  bytes data = 4; // 文件原始字节数据
+}
+
+// 附件上传响应
+message AttachResponse {
+  string id = 1; // 附件 ID（与请求中的 id 对应）
+  int32 status_code = 2; // 状态码（0 表示成功）
+  string error_message = 3; // 错误信息（如果有）
+}
+
+// Shared location type
+message Location {
+  double latitude = 1; // Latitude
+  double longitude = 2; // Longitude
+  string address = 3; // Optional: Address description
+  string place_name = 4; // Optional: Place name
+}
+
+service StreamServer {
+  // 提交问题并获取回答
+  rpc UsrPrompt(UsrPromptRequest) returns (AssistantReply);
+  // 注销数据流
+  rpc UnregisterDataStream(UnregisterRequest) returns (UnregisterResponse);
+
+  // Uploads an attachment
+  rpc Attach(AttachRequest) returns (AttachResponse);
+}
